@@ -1,6 +1,9 @@
 "use client";
 
-import { FormField, Select, TextInput } from "@/components/common";
+import { useId } from "react";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { FieldErrors } from "@/lib/api-client";
 import type { PhoneInput } from "@/lib/types";
 
@@ -49,34 +52,56 @@ export function PhoneField({
 }: PhoneFieldProps) {
   const countryError = errors[`${name}.countryCode`];
   const numberError = errors[`${name}.number`] ?? errors[name];
+  const errorMessage = countryError || numberError;
+  const inputId = useId();
+
   return (
-    <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start gap-2">
-      <FormField label={`${label} — country`} error={countryError}>
-        <Select
-          value={value.countryCode}
-          invalid={Boolean(countryError)}
-          onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
-        >
-          {COUNTRY_CODES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="Number" error={numberError}>
-        <TextInput
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="01712345678"
-          required={required}
-          value={value.number}
-          invalid={Boolean(numberError)}
-          onChange={(e) => onChange({ ...value, number: e.target.value })}
-        />
-      </FormField>
-    </div>
+    <Field data-invalid={Boolean(errorMessage) || undefined} className="w-full">
+      <FieldLabel htmlFor={`${inputId}-number`}>
+        {label}
+        {required && (
+          <span className="text-destructive ml-0.5" aria-hidden="true">
+            *
+          </span>
+        )}
+      </FieldLabel>
+      <div className="flex items-center gap-2 w-full">
+        <div className="w-36 sm:w-44 shrink-0">
+          <NativeSelect
+            id={`${inputId}-country`}
+            aria-label={`${label} country code`}
+            value={value.countryCode}
+            aria-invalid={Boolean(countryError) || undefined}
+            onChange={(e) =>
+              onChange({ ...value, countryCode: e.target.value })
+            }
+            className="w-full"
+          >
+            {COUNTRY_CODES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="flex-1 min-w-0">
+          <Input
+            id={`${inputId}-number`}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel-national"
+            placeholder="01712345678"
+            required={required}
+            value={value.number}
+            aria-invalid={Boolean(numberError) || undefined}
+            aria-label={`${label} number`}
+            onChange={(e) => onChange({ ...value, number: e.target.value })}
+            className="w-full"
+          />
+        </div>
+      </div>
+      {errorMessage && <FieldError>{errorMessage}</FieldError>}
+    </Field>
   );
 }
 

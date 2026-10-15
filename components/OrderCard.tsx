@@ -42,7 +42,7 @@ export function OrderCard({
         <CardTitle className="flex flex-wrap items-center gap-2">
           <Link
             href={`/orders/${order.id}`}
-            className="hover:underline hover:text-primary transition-colors"
+            className="cursor-pointer hover:underline hover:text-primary transition-colors"
           >
             Order #{order.id}
           </Link>

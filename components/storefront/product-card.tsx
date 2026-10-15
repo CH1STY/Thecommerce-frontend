@@ -196,7 +196,7 @@ export function ProductCarousel({
         role="region"
         aria-label={label}
         tabIndex={0}
-        className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1 outline-none sm:mx-0 sm:scroll-px-0 sm:px-0"
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1 outline-none sm:mx-0 sm:scroll-px-0 sm:px-0 scroll-smooth"
       >
         {products.map((p) => (
           <ProductCard

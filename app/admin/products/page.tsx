@@ -292,7 +292,7 @@ export default function ProductsAdminPage() {
         open={editing?.mode === "create" || editing?.mode === "edit"}
         onOpenChange={(open) => !open && setEditing(null)}
       >
-        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto scroll-smooth sm:max-w-3xl lg:max-w-4xl">
           {(editing?.mode === "create" || editing?.mode === "edit") && (
             <ProductForm
               key={editing.mode === "edit" ? editing.product.id : "new"}
@@ -541,7 +541,7 @@ function ProductForm({
                 Live
               </Badge>
             </div>
-            <div className="mx-auto w-full max-w-[240px]">
+            <div className="mx-auto w-full max-w-60">
               <ProductCard product={previewProduct} />
             </div>
             <p className="text-center text-[11px] text-muted-foreground">

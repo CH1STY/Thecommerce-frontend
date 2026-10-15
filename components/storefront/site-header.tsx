@@ -431,7 +431,7 @@ function SearchBox() {
             id={listId}
             role="listbox"
             aria-label="Suggestions"
-            className="max-h-96 overflow-y-auto p-1"
+            className="max-h-96 overflow-y-auto scroll-smooth p-1"
           >
             {items.map((product, index) => (
               <li
@@ -478,7 +478,7 @@ function SearchBox() {
           <button
             type="button"
             onClick={() => go(text)}
-            className="flex w-full items-center gap-2 border-t px-4 py-2.5 text-left text-sm hover:bg-accent"
+            className="flex w-full cursor-pointer items-center gap-2 border-t px-4 py-2.5 text-left text-sm hover:bg-accent"
           >
             <SearchIcon className="size-4 text-muted-foreground" />
             See all results for “
@@ -664,7 +664,7 @@ function MobileMenu() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-80 max-w-[85vw] gap-0 overflow-y-auto"
+        className="w-80 max-w-[85vw] gap-0 overflow-y-auto scroll-smooth"
       >
         <SheetHeader className="border-b">
           <SheetTitle>TheCommerce</SheetTitle>

@@ -221,7 +221,7 @@ export function SearchPage() {
               <button
                 type="button"
                 onClick={() => update({ categoryId: c.id })}
-                className="hover:text-foreground"
+                className="hover:text-foreground cursor-pointer"
               >
                 {c.name}
               </button>
@@ -251,7 +251,7 @@ export function SearchPage() {
                 <SheetHeader className="border-b">
                   <SheetTitle>Filters</SheetTitle>
                 </SheetHeader>
-                <div className="flex-1 overflow-y-auto p-4">{panel}</div>
+                <div className="flex-1 overflow-y-auto scroll-smooth p-4">{panel}</div>
                 <SheetFooter className="border-t">
                   <Button type="button" onClick={() => setFiltersOpen(false)}>
                     Show {count ?? ""} result{count === 1 ? "" : "s"}

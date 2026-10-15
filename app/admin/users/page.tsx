@@ -309,7 +309,7 @@ function Users() {
         open={panel !== null}
         onOpenChange={(open) => !open && setPanel(null)}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto scroll-smooth sm:max-w-2xl">
           {panel?.mode === "create" && (
             <CreateUserForm
               onCreated={(created) => {

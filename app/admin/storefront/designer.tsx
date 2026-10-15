@@ -440,7 +440,7 @@ export function StorefrontDesigner() {
         <Loading label="Loading layout…" />
       ) : (
         <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <Card className="gap-0 py-0 xl:sticky xl:top-28 xl:h-[calc(100vh-8.5rem)] xl:overflow-y-auto">
+          <Card className="gap-0 py-0 xl:sticky xl:top-28 xl:h-[calc(100vh-8.5rem)] xl:overflow-y-auto scroll-smooth">
             {editing ? (
               <div>
                 <div className="sticky top-0 z-10 flex items-center gap-1 border-b bg-card px-2 py-2">
@@ -782,7 +782,7 @@ function SortableRow({
         >
           <GripVerticalIcon className="size-4" />
         </button>
-        <button type="button" onClick={onEdit} className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left">
+        <button type="button" onClick={onEdit} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-left">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
             <Icon className="size-4" />
           </span>

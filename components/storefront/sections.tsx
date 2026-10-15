@@ -437,7 +437,7 @@ function Categories({ section }: { section: CategoriesSection }) {
           ))}
         </div>
       ) : section.style === "circles" ? (
-        <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 sm:gap-6">
+        <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 sm:gap-6 scroll-smooth">
           {tiles.map(({ node, imageUrl }) => (
             <Link
               key={node.id}

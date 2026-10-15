@@ -154,72 +154,92 @@ export default function CartPage() {
                 <li
                   key={line.productId}
                   className={cn(
-                    "flex flex-wrap items-center gap-4 py-4 sm:flex-nowrap",
+                    "flex gap-3 py-3 sm:items-center sm:gap-4 sm:py-4",
                     lineError && "-mx-2 rounded-lg bg-destructive/5 px-2",
                   )}
                 >
                   <ProductImage
                     src={line.imageUrl}
                     alt={line.name}
-                    className="size-16 shrink-0 rounded-lg"
+                    className="size-14 shrink-0 rounded-lg sm:size-16"
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{line.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {money(line.price)} · {line.stockQuantity} in stock
-                    </p>
-                    {lineError && (
-                      <p className="text-xs text-destructive">{lineError}</p>
-                    )}
+                  <div className="flex flex-1 min-w-0 flex-col justify-between gap-2 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2 sm:block">
+                        <p className="truncate text-sm font-medium leading-tight sm:text-base">{line.name}</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Remove ${line.name}`}
+                          onClick={() => cart.remove(line.productId)}
+                          className="text-muted-foreground hover:text-destructive sm:hidden shrink-0 -mr-1"
+                        >
+                          <Trash2Icon className="size-3.5" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground sm:text-sm">
+                        {money(line.price)} · {line.stockQuantity} in stock
+                      </p>
+                      {lineError && (
+                        <p className="text-xs text-destructive">{lineError}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <div className="flex items-center rounded-lg border bg-background shadow-2xs">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Decrease quantity of ${line.name}`}
+                          className="size-7 rounded-none rounded-l-lg"
+                          onClick={() =>
+                            cart.setQuantity(line.productId, line.quantity - 1)
+                          }
+                        >
+                          <MinusIcon className="size-3" />
+                        </Button>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={max}
+                          value={line.quantity}
+                          onChange={(e) =>
+                            cart.setQuantity(line.productId, Number(e.target.value))
+                          }
+                          aria-label={`Quantity of ${line.name}`}
+                          className="h-7 w-9 sm:w-11 border-0 px-1 text-center text-xs tabular-nums shadow-none focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Increase quantity of ${line.name}`}
+                          className="size-7 rounded-none rounded-r-lg"
+                          disabled={line.quantity >= max}
+                          onClick={() =>
+                            cart.setQuantity(line.productId, line.quantity + 1)
+                          }
+                        >
+                          <PlusIcon className="size-3" />
+                        </Button>
+                      </div>
+                      <span className="text-right text-sm font-semibold tabular-nums sm:w-24 sm:font-medium">
+                        {money(line.price * line.quantity)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove ${line.name}`}
+                        onClick={() => cart.remove(line.productId)}
+                        className="hidden sm:inline-flex text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center rounded-lg border">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Decrease quantity of ${line.name}`}
-                      onClick={() =>
-                        cart.setQuantity(line.productId, line.quantity - 1)
-                      }
-                    >
-                      <MinusIcon />
-                    </Button>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={max}
-                      value={line.quantity}
-                      onChange={(e) =>
-                        cart.setQuantity(line.productId, Number(e.target.value))
-                      }
-                      aria-label={`Quantity of ${line.name}`}
-                      className="h-7 w-12 border-0 px-1 text-center tabular-nums shadow-none focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Increase quantity of ${line.name}`}
-                      disabled={line.quantity >= max}
-                      onClick={() =>
-                        cart.setQuantity(line.productId, line.quantity + 1)
-                      }
-                    >
-                      <PlusIcon />
-                    </Button>
-                  </div>
-                  <span className="w-24 text-right font-medium tabular-nums">
-                    {money(line.price * line.quantity)}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove ${line.name}`}
-                    onClick={() => cart.remove(line.productId)}
-                  >
-                    <Trash2Icon />
-                  </Button>
                 </li>
               );
             })}

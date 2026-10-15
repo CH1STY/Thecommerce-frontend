@@ -134,18 +134,67 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-overflow-scrolling: touch;
   }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Interactive elements must have a pointer cursor */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]):not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled),
+  a[href],
+  summary,
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="menuitemcheckbox"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([aria-disabled="true"]),
+  [role="slider"]:not([aria-disabled="true"]),
+  label[for],
+  label:has(input:not(:disabled)),
+  label:has(button:not(:disabled)) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [role="tab"][aria-disabled="true"],
+  [role="menuitem"][aria-disabled="true"],
+  [role="switch"][aria-disabled="true"],
+  [role="checkbox"][aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+
   /* Native <select> popups: options otherwise inherit the light text colour of dark mode on a light system popup. */
   select option,
   select optgroup {
     background-color: var(--popover);
     color: var(--popover-foreground);
+    cursor: pointer;
   }
 }
 

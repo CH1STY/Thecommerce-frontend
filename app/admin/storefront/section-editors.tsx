@@ -356,7 +356,7 @@ function ProductPicker({ ids, onChange }: { ids: number[]; onChange: (ids: numbe
         </Button>
       </form>
       {results.data && (
-        <ul className="max-h-64 divide-y overflow-y-auto rounded-lg border">
+        <ul className="max-h-64 divide-y overflow-y-auto scroll-smooth rounded-lg border">
           {results.data.length === 0 && <li className="p-2 text-sm text-muted-foreground">No matches.</li>}
           {results.data.map((p) => (
             <li key={p.id} className="flex items-center gap-2 p-1.5 pl-2 text-sm">

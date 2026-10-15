@@ -101,7 +101,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
         <nav
           aria-label="Staff"
-          className="no-print -mx-4 flex gap-1 overflow-x-auto border-b px-4 pb-3 lg:sticky lg:top-20 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:border-0 lg:px-0 lg:pb-0"
+          className="no-print -mx-4 flex gap-1 overflow-x-auto scroll-smooth border-b px-4 pb-3 lg:sticky lg:top-20 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:border-0 lg:px-0 lg:pb-0"
         >
           {sections.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
