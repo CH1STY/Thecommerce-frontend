@@ -17,8 +17,9 @@
    (401 → signed out). Sign out with `POST /auth/logout`.
 4. **Every error is an `ApiError`.** Use `toApiError(error)` in `catch`, then `error.status`, `error.message`,
    `error.fieldErrors` and the helpers (`isValidationError`, `isUnauthorized`, `isForbidden`, `isNotFound`, …).
-5. **Money** (`price`, `totalAmount`, `cashReceived`, …) is a JSON **number** with up to 2 decimals. Format with
-   `Intl.NumberFormat`; send numbers, not strings. **Timestamps** are ISO-8601 UTC strings (`"2026-10-15T14:03:11.52Z"`).
+5. **Money** (`price`, `totalAmount`, `cashReceived`, …) is a JSON **number** with up to 2 decimals. Format it in the
+   **shop currency** from `GET /settings` (admin-configurable) — in the app use `useSettings().money(value)`
+   (`lib/settings.tsx`); never hard-code a currency. Send numbers, not strings. **Timestamps** are ISO-8601 UTC strings (`"2026-10-15T14:03:11.52Z"`).
 6. Writes (`POST/PUT/PATCH/DELETE`) must be same-origin — the BFF rejects cross-site writes with 403. Normal in-app calls are fine.
 
 ---
@@ -27,31 +28,33 @@
 
 ### New endpoints
 
-| Method & path | Who | Purpose |
-|---|---|---|
-| `GET /categories` | public | Whole category tree (nested) |
-| `GET /categories/{id}` | public | One category + breadcrumb `path` + direct `children` |
-| `POST /categories` · `PUT /categories/{id}` · `DELETE /categories/{id}` | ADMIN, MANAGER | Manage the tree |
-| `POST /orders/guest` | **public** | Checkout without an account (name + phone + address) |
-| `POST /orders/in-store` | ADMIN, MANAGER | Walk-in customer cash sale → receipt |
-| `POST /inventory/adjustments` | ADMIN, MANAGER | Add/remove stock with a reason (damaged, returned, …) |
-| `GET /inventory/movements` | ADMIN, MANAGER | Stock history (ledger), filterable |
+| Method & path                                                           | Who            | Purpose                                                    |
+| ----------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
+| `GET /categories`                                                       | public         | Whole category tree (nested)                               |
+| `GET /categories/{id}`                                                  | public         | One category + breadcrumb `path` + direct `children`       |
+| `POST /categories` · `PUT /categories/{id}` · `DELETE /categories/{id}` | ADMIN, MANAGER | Manage the tree                                            |
+| `POST /orders/guest`                                                    | **public**     | Checkout without an account (name + phone + address)       |
+| `POST /orders/in-store`                                                 | ADMIN, MANAGER | Walk-in customer cash sale → receipt                       |
+| `POST /inventory/adjustments`                                           | ADMIN, MANAGER | Add/remove stock with a reason (damaged, returned, …)      |
+| `GET /inventory/movements`                                              | ADMIN, MANAGER | Stock history (ledger), filterable                         |
+| `GET /settings` · `GET /settings/currencies`                            | public         | Shop settings (display currency) · accepted ISO 4217 codes |
+| `PUT /settings`                                                         | ADMIN          | Change the shop currency (`{ "currency": "BDT" }`)         |
 
 ### Changed endpoints
 
-| Endpoint | Change |
-|---|---|
-| `GET /products` | New optional query params `q`, `categoryId`, `inStock`. Response items gain `categoryId`, `categoryPath`. |
-| `GET /products/{id}` | Gains `categoryId`, `categoryPath`. |
-| `POST /products` · `PUT /products/{id}` | Body gains `categoryId`. ⚠ `PUT` **replaces** it: omit/null = uncategorised. |
-| `PATCH /products/{id}/stock` | Body gains optional `note`. (Sets an absolute counted quantity.) |
-| `POST /auth/register` | ⚠ **`phone` is now required** and is an **object** `{countryCode, number}`. |
-| `PATCH /auth/me` | ⚠ `phone` is now an object `{countryCode, number}` (was a string). |
-| `POST /users` · `PATCH /users/{id}` (admin) | ⚠ `phone` is now an object `{countryCode, number}`. |
-| `POST /orders` (signed-in customer) | ⚠ Body fields renamed: `shippingName` → `customerName`, `shippingPhone` (string) → `phone` (object). |
-| All order responses | ⚠ `shippingName` → `customerName`, `shippingPhone` → `customerPhone`; new `channel`, `receipt`; `customer` and `shippingAddress` may be **null**. |
-| `GET /orders` (staff) | New optional `channel` filter (`ONLINE` / `IN_STORE`). |
-| `GET /orders/me` | Now also contains guest and in-store orders made with the customer's phone. |
+| Endpoint                                    | Change                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /products`                             | New optional query params `q`, `categoryId`, `inStock`. Response items gain `categoryId`, `categoryPath`.                                         |
+| `GET /products/{id}`                        | Gains `categoryId`, `categoryPath`.                                                                                                               |
+| `POST /products` · `PUT /products/{id}`     | Body gains `categoryId`. ⚠ `PUT` **replaces** it: omit/null = uncategorised.                                                                      |
+| `PATCH /products/{id}/stock`                | Body gains optional `note`. (Sets an absolute counted quantity.)                                                                                  |
+| `POST /auth/register`                       | ⚠ **`phone` is now required** and is an **object** `{countryCode, number}`.                                                                       |
+| `PATCH /auth/me`                            | ⚠ `phone` is now an object `{countryCode, number}` (was a string).                                                                                |
+| `POST /users` · `PATCH /users/{id}` (admin) | ⚠ `phone` is now an object `{countryCode, number}`.                                                                                               |
+| `POST /orders` (signed-in customer)         | ⚠ Body fields renamed: `shippingName` → `customerName`, `shippingPhone` (string) → `phone` (object).                                              |
+| All order responses                         | ⚠ `shippingName` → `customerName`, `shippingPhone` → `customerPhone`; new `channel`, `receipt`; `customer` and `shippingAddress` may be **null**. |
+| `GET /orders` (staff)                       | New optional `channel` filter (`ONLINE` / `IN_STORE`).                                                                                            |
+| `GET /orders/me`                            | Now also contains guest and in-store orders made with the customer's phone.                                                                       |
 
 ---
 
@@ -61,16 +64,16 @@
 // ---- shared ---------------------------------------------------------------------------------
 export interface Page<T> {
   content: T[];
-  page: number;          // 0-based
-  size: number;          // max 100
+  page: number; // 0-based
+  size: number; // max 100
   totalElements: number;
   totalPages: number;
 }
 
 /** What you SEND for any phone number. Both parts are required. */
 export interface PhoneInput {
-  countryCode: string;   // calling code, with or without "+": "+880", "880", "+1", "+44"
-  number: string;        // local/national part: "01712345678" (digits; spaces, - . ( ) allowed)
+  countryCode: string; // calling code, with or without "+": "+880", "880", "+1", "+44"
+  number: string; // local/national part: "01712345678" (digits; spaces, - . ( ) allowed)
 }
 // What you RECEIVE for a phone is always a plain E.164 string, e.g. "+8801712345678".
 
@@ -80,7 +83,7 @@ export interface User {
   id: number;
   email: string;
   fullName: string;
-  phone: string | null;          // E.164
+  phone: string | null; // E.164
   shippingAddress: string | null;
   role: Role;
   enabled: boolean;
@@ -88,21 +91,26 @@ export interface User {
 }
 
 // ---- catalogue ------------------------------------------------------------------------------
-export interface CategoryRef { id: number; name: string }
-
-export interface CategoryNode {          // GET /categories
+export interface CategoryRef {
   id: number;
   name: string;
-  parentId: number | null;
-  children: CategoryNode[];              // sorted by name, any depth
 }
 
-export interface CategoryDetail {        // GET/POST/PUT /categories/{id}
+export interface CategoryNode {
+  // GET /categories
   id: number;
   name: string;
   parentId: number | null;
-  path: CategoryRef[];                   // root → … → this category (breadcrumb)
-  children: CategoryRef[];               // direct sub-categories only
+  children: CategoryNode[]; // sorted by name, any depth
+}
+
+export interface CategoryDetail {
+  // GET/POST/PUT /categories/{id}
+  id: number;
+  name: string;
+  parentId: number | null;
+  path: CategoryRef[]; // root → … → this category (breadcrumb)
+  children: CategoryRef[]; // direct sub-categories only
 }
 
 export interface Product {
@@ -114,34 +122,44 @@ export interface Product {
   stockQuantity: number;
   inStock: boolean;
   categoryId: number | null;
-  categoryPath: CategoryRef[];           // breadcrumb of the product's category; [] when uncategorised
+  categoryPath: CategoryRef[]; // breadcrumb of the product's category; [] when uncategorised
 }
 
-export interface ProductInput {          // POST /products, PUT /products/{id}
+export interface ProductInput {
+  // POST /products, PUT /products/{id}
   name: string;
   description: string;
   price: number;
   imageUrl: string;
-  stockQuantity?: number;                // create: initial stock (default 0). update: omit = unchanged
-  categoryId?: number | null;            // PUT: omit/null = REMOVES the category
+  stockQuantity?: number; // create: initial stock (default 0). update: omit = unchanged
+  categoryId?: number | null; // PUT: omit/null = REMOVES the category
 }
 
 // ---- orders ---------------------------------------------------------------------------------
-export type OrderStatus = "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
 export type OrderChannel = "ONLINE" | "IN_STORE";
 
-export interface OrderItemInput { productId: number; quantity: number }   // quantity 1..100, max 50 lines
+export interface OrderItemInput {
+  productId: number;
+  quantity: number;
+} // quantity 1..100, max 50 lines
 
 export interface OrderItem {
-  productId: number | null;              // null if the product was deleted later
-  productName: string;                   // snapshot at order time
+  productId: number | null; // null if the product was deleted later
+  productName: string; // snapshot at order time
   unitPrice: number;
   quantity: number;
   lineTotal: number;
 }
 
-export interface Receipt {               // only on IN_STORE orders
-  receiptNumber: string;                 // "R-00000042"
+export interface Receipt {
+  // only on IN_STORE orders
+  receiptNumber: string; // "R-00000042"
   paymentMethod: "CASH";
   cashReceived: number;
   change: number;
@@ -154,8 +172,8 @@ export interface Order {
   status: OrderStatus;
   totalAmount: number;
   customerName: string;
-  customerPhone: string;                 // E.164
-  shippingAddress: string | null;        // null for IN_STORE
+  customerPhone: string; // E.164
+  shippingAddress: string | null; // null for IN_STORE
   customer: { id: number; email: string; fullName: string } | null; // null = guest/walk-in phone with no account (yet)
   items: OrderItem[];
   receipt: Receipt | null;
@@ -165,21 +183,29 @@ export interface Order {
 
 // ---- inventory ------------------------------------------------------------------------------
 export type ManualStockReason =
-  | "RESTOCK" | "RETURNED"               // must be positive
-  | "DAMAGED" | "LOST" | "EXPIRED"       // must be negative
-  | "CORRECTION" | "OTHER";              // either sign, note REQUIRED
+  | "RESTOCK"
+  | "RETURNED" // must be positive
+  | "DAMAGED"
+  | "LOST"
+  | "EXPIRED" // must be negative
+  | "CORRECTION"
+  | "OTHER"; // either sign, note REQUIRED
 export type StockReason =
   | ManualStockReason
-  | "INITIAL_STOCK" | "STOCK_COUNT" | "ORDER_PLACED" | "ORDER_CANCELLED" | "IN_STORE_SALE"; // system-recorded
+  | "INITIAL_STOCK"
+  | "STOCK_COUNT"
+  | "ORDER_PLACED"
+  | "ORDER_CANCELLED"
+  | "IN_STORE_SALE"; // system-recorded
 
 export interface StockMovement {
   id: number;
   productId: number;
   reason: StockReason;
-  quantityChange: number;                // signed: +3 added, -2 removed
+  quantityChange: number; // signed: +3 added, -2 removed
   stockAfter: number;
   note: string | null;
-  orderId: number | null;                // set for ORDER_PLACED / ORDER_CANCELLED / IN_STORE_SALE
+  orderId: number | null; // set for ORDER_PLACED / ORDER_CANCELLED / IN_STORE_SALE
   actor: { id: number; fullName: string } | null; // who did it (null for guest orders / seed data)
   createdAt: string | null;
 }
@@ -205,16 +231,16 @@ number field. Send them **separately**:
 
 **Errors** come back as 400 with **dotted keys** in `fieldErrors`:
 
-| Key | Meaning | Show it under |
-|---|---|---|
-| `phone` | phone object missing | the phone group |
-| `phone.countryCode` | not a calling code / unknown country | country selector |
-| `phone.number` | not a valid number for that country (or bad characters) | number input |
+| Key                 | Meaning                                                 | Show it under    |
+| ------------------- | ------------------------------------------------------- | ---------------- |
+| `phone`             | phone object missing                                    | the phone group  |
+| `phone.countryCode` | not a calling code / unknown country                    | country selector |
+| `phone.number`      | not a valid number for that country (or bad characters) | number input     |
 
 ```ts
 const err = toApiError(e);
 const countryError = err.fieldErrors["phone.countryCode"];
-const numberError  = err.fieldErrors["phone.number"] ?? err.fieldErrors["phone"];
+const numberError = err.fieldErrors["phone.number"] ?? err.fieldErrors["phone"];
 ```
 
 **One phone = one account.** Registering or changing a profile to a phone another account already uses → **409** with
@@ -232,11 +258,11 @@ const numberError  = err.fieldErrors["phone.number"] ?? err.fieldErrors["phone"]
 api.get<Product[]>("/products", { params: { q, categoryId, inStock: true } });
 ```
 
-| Param | Meaning |
-|---|---|
-| `q` | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters |
-| `categoryId` | that category **plus every sub-category below it** (any depth) |
-| `inStock=true` | hide sold-out products (`stockQuantity === 0`) |
+| Param          | Meaning                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| `q`            | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters |
+| `categoryId`   | that category **plus every sub-category below it** (any depth)                              |
+| `inStock=true` | hide sold-out products (`stockQuantity === 0`)                                              |
 
 - All optional and combinable. Response is a plain **array** sorted by id (not paged).
 - Unknown `categoryId` → **404** (e.g. a stale link) — show "category not found" and fall back to all products.
@@ -247,7 +273,7 @@ api.get<Product[]>("/products", { params: { q, categoryId, inStock: true } });
 ### 4.2 Category navigation
 
 ```ts
-const tree = await api.get<CategoryNode[]>("/categories");  // top-level nodes with nested children
+const tree = await api.get<CategoryNode[]>("/categories"); // top-level nodes with nested children
 ```
 
 - Fetch once and cache (it's small). Render as a sidebar/mega-menu; recursion handles any depth.
@@ -264,11 +290,16 @@ const tree = await api.get<CategoryNode[]>("/categories");  // top-level nodes w
 
 ```ts
 // register (phone REQUIRED now)
-const { user, expiresAt } = await api.post<{ user: User; expiresAt: string }>("/auth/register", {
-  email, password, fullName,
-  phone: { countryCode: "+880", number: "01712345678" },
-  shippingAddress, // optional
-});
+const { user, expiresAt } = await api.post<{ user: User; expiresAt: string }>(
+  "/auth/register",
+  {
+    email,
+    password,
+    fullName,
+    phone: { countryCode: "+880", number: "01712345678" },
+    shippingAddress, // optional
+  },
+);
 // login is unchanged: { email, password }
 ```
 
@@ -301,11 +332,12 @@ await api.patch<User>("/auth/me", { fullName?, phone?: PhoneInput, shippingAddre
 ```ts
 await api.post<Order>("/orders", {
   items: [{ productId: 1, quantity: 2 }],
-  customerName: "Ann",                                   // optional (default: profile name)
+  customerName: "Ann", // optional (default: profile name)
   phone: { countryCode: "+880", number: "01712345678" }, // optional (default: profile phone)
-  shippingAddress: "1 Main St, Dhaka",                   // optional (default: profile address)
+  shippingAddress: "1 Main St, Dhaka", // optional (default: profile address)
 });
 ```
+
 - 400 `fieldErrors.phone` / `fieldErrors.shippingAddress` = "is required (none saved on your profile)" → show those inputs.
   Pre-fill the form from `GET /auth/me` so this rarely happens.
 - The first order saves phone/address to the profile if the profile had none.
@@ -321,6 +353,7 @@ await api.post<Order>("/orders/guest", {
   shippingAddress: "5 Guest Rd, Dhaka",
 });
 ```
+
 - Works signed out. If an account already owns that phone, the response has `customer` filled — the order is
   already in that account's history ("Sign in to track it").
 - Otherwise `customer` is `null`. **Guests cannot view or cancel the order later without an account** — so on the
@@ -332,20 +365,26 @@ Stock is checked and taken **at the moment the order is placed**. If anything is
 
 ```json
 {
-  "status": 409, "detail": "Some items are unavailable.",
-  "errors": { "2": "Only 1 of \"Tee\" left in stock.", "7": "Product 7 no longer exists." }
+  "status": 409,
+  "detail": "Some items are unavailable.",
+  "errors": {
+    "2": "Only 1 of \"Tee\" left in stock.",
+    "7": "Product 7 no longer exists."
+  }
 }
 ```
+
 `fieldErrors` is keyed by **productId** → highlight those cart lines, show the messages, let the user adjust, and
 re-fetch the products. Nothing was taken (all-or-nothing).
 
 ### 5.5 My orders
 
 ```ts
-api.get<Page<Order>>("/orders/me", { params: { page: 0, size: 20 } });   // newest first
+api.get<Page<Order>>("/orders/me", { params: { page: 0, size: 20 } }); // newest first
 api.get<Order>(`/orders/${id}`);
 api.post<Order>(`/orders/${id}/cancel`);
 ```
+
 - The list now mixes online orders, guest orders and in-store purchases made with the user's phone. Show a badge from
   `channel` (`ONLINE` → "Online", `IN_STORE` → "In store") and, for in-store ones, the `receipt` (§6.1).
 - **Cancel** button only when `status === "PENDING"` (otherwise 409). Stock is returned automatically.
@@ -362,9 +401,9 @@ Read the role from `GET /auth/me` to show/hide staff UI; the backend still enfor
 ```ts
 const sale = await api.post<Order>("/orders/in-store", {
   items: [{ productId: 3, quantity: 2 }],
-  customerName: "Rahim",                                     // required
-  phone: { countryCode: "+880", number: "01812345678" },     // required
-  cashReceived: 100,                                          // required, must cover the total
+  customerName: "Rahim", // required
+  phone: { countryCode: "+880", number: "01812345678" }, // required
+  cashReceived: 100, // required, must cover the total
 });
 // sale.channel === "IN_STORE", sale.status === "DELIVERED", sale.receipt = { receiptNumber, cashReceived, change, cashier, ... }
 ```
@@ -388,35 +427,43 @@ customer name + phone → "Cash received" → live "Change: …" preview → **C
 ```ts
 await api.post<StockMovement>("/inventory/adjustments", {
   productId: 5,
-  quantityChange: -2,        // signed, not 0: + adds / re-enters, − removes
+  quantityChange: -2, // signed, not 0: + adds / re-enters, − removes
   reason: "DAMAGED",
   note: "Dropped in storage", // optional except for CORRECTION / OTHER (max 500 chars)
 });
 ```
 
-| Reason | Sign | Use for |
-|---|---|---|
-| `RESTOCK` | + | New delivery from a supplier |
-| `RETURNED` | + | Item re-entered (customer return, found again) |
-| `DAMAGED` | − | Broken / unsellable |
-| `LOST` | − | Missing / stolen |
-| `EXPIRED` | − | Past its date |
-| `CORRECTION` | ± | Fixing a mistake — **note required** |
-| `OTHER` | ± | Anything else — **note required** |
+| Reason       | Sign | Use for                                        |
+| ------------ | ---- | ---------------------------------------------- |
+| `RESTOCK`    | +    | New delivery from a supplier                   |
+| `RETURNED`   | +    | Item re-entered (customer return, found again) |
+| `DAMAGED`    | −    | Broken / unsellable                            |
+| `LOST`       | −    | Missing / stolen                               |
+| `EXPIRED`    | −    | Past its date                                  |
+| `CORRECTION` | ±    | Fixing a mistake — **note required**           |
+| `OTHER`      | ±    | Anything else — **note required**              |
 
 UI tip: a "Add stock / Remove stock" toggle + a positive quantity + a reason list filtered by the toggle; send the
 signed number. Errors: 400 `fieldErrors.quantityChange` (wrong sign / 0), `fieldErrors.reason`, `fieldErrors.note`;
 **409** when removing more than is in stock. The response's `stockAfter` is the new level.
 
 **Stock count** (overwrite with what was physically counted):
+
 ```ts
-await api.patch<Product>(`/products/${id}/stock`, { stockQuantity: 42, note: "Monthly count" });
+await api.patch<Product>(`/products/${id}/stock`, {
+  stockQuantity: 42,
+  note: "Monthly count",
+});
 ```
 
 **Stock history (ledger):**
+
 ```ts
-api.get<Page<StockMovement>>("/inventory/movements", { params: { productId, reason, page, size } }); // all optional, newest first
+api.get<Page<StockMovement>>("/inventory/movements", {
+  params: { productId, reason, page, size },
+}); // all optional, newest first
 ```
+
 Show it on the product admin page (`productId=…`) and as a global report (e.g. `reason=DAMAGED` for a damages
 report). Render `quantityChange` with a sign and colour, link `orderId` to the order, show `actor?.fullName ?? "Guest/System"`.
 
@@ -430,34 +477,34 @@ report). Render `quantityChange` with a sign and colour, link `orderId` to the o
 ### 6.4 Categories admin
 
 ```ts
-api.post<CategoryDetail>("/categories", { name: "Sneakers", parentId: 12 });   // parentId null/omitted = top level
-api.put<CategoryDetail>(`/categories/${id}`, { name, parentId });            // rename and/or move (whole subtree moves)
+api.post<CategoryDetail>("/categories", { name: "Sneakers", parentId: 12 }); // parentId null/omitted = top level
+api.put<CategoryDetail>(`/categories/${id}`, { name, parentId }); // rename and/or move (whole subtree moves)
 api.delete(`/categories/${id}`);
 ```
 
-| Response | Meaning |
-|---|---|
-| 409 `fieldErrors.name` | a sibling already has that name (case-insensitive) |
+| Response                   | Meaning                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| 409 `fieldErrors.name`     | a sibling already has that name (case-insensitive)                                |
 | 400 `fieldErrors.parentId` | parent doesn't exist, or you tried to move a category under itself/its descendant |
-| 409 on delete | it still has sub-categories or products — move them first |
+| 409 on delete              | it still has sub-categories or products — move them first                         |
 
 `PUT` replaces `parentId` too: send the current parent when you only rename.
 
 ### 6.5 Orders admin
 
 ```ts
-api.get<Page<Order>>("/orders", { params: { status, channel, page, size } });  // both filters optional
+api.get<Page<Order>>("/orders", { params: { status, channel, page, size } }); // both filters optional
 api.patch<Order>(`/orders/${id}/status`, { status: "CONFIRMED" });
 ```
 
 Allowed moves (anything else → 409):
 
-| From | To |
-|---|---|
-| `PENDING` | `CONFIRMED`, `CANCELLED` |
-| `CONFIRMED` | `SHIPPED`, `CANCELLED` |
-| `SHIPPED` | `DELIVERED` |
-| `DELIVERED`, `CANCELLED` | — (final) |
+| From                     | To                       |
+| ------------------------ | ------------------------ |
+| `PENDING`                | `CONFIRMED`, `CANCELLED` |
+| `CONFIRMED`              | `SHIPPED`, `CANCELLED`   |
+| `SHIPPED`                | `DELIVERED`              |
+| `DELIVERED`, `CANCELLED` | — (final)                |
 
 Cancelling returns stock automatically. `IN_STORE` orders are already `DELIVERED` → show them read-only with their
 receipt. Show `customer?.email ?? "Guest (no account)"` plus `customerName` / `customerPhone`.
@@ -467,18 +514,31 @@ receipt. Show `customer?.email ?? "Guest (no account)"` plus `customerName` / `c
 Same as before, except `phone` in `POST /users` and `PATCH /users/{id}` is now a `PhoneInput` object, it must be unique
 (409 `fieldErrors.phone`), and a user who recorded in-store sales (cashier) can't be deleted — disable instead (409).
 
+### 6.7 Shop settings (ADMIN)
+
+```ts
+api.get<StoreSettings>("/settings"); // public: { currency: "USD", currencyFractionDigits: 2, updatedAt }
+api.get<string[]>("/settings/currencies"); // public: sorted ISO 4217 codes the backend accepts
+api.put<StoreSettings>("/settings", { currency: "BDT" }); // ADMIN only; case-insensitive
+```
+
+- 400 `fieldErrors.currency` → unknown / pseudo currency (e.g. `XXX`).
+- Changing the currency only changes **display**; stored prices and past orders are not converted.
+
 ---
 
 ## 7. Who can do what (for showing/hiding UI)
 
-| Feature | Signed out | CUSTOMER | MANAGER | ADMIN |
-|---|:-:|:-:|:-:|:-:|
-| Browse/search products & categories | ✅ | ✅ | ✅ | ✅ |
-| Guest checkout `/orders/guest` | ✅ | ✅* | ✅* | ✅* |
-| Account checkout `/orders`, My orders, cancel | – | ✅ | – | – |
-| POS `/orders/in-store` | – | – | ✅ | ✅ |
-| Products, categories, stock, ledger, all orders | – | – | ✅ | ✅ |
-| Users | – | – | – | ✅ |
+| Feature                                         | Signed out | CUSTOMER | MANAGER | ADMIN |
+| ----------------------------------------------- | :--------: | :------: | :-----: | :---: |
+| Browse/search products & categories             |     ✅     |    ✅    |   ✅    |  ✅   |
+| Guest checkout `/orders/guest`                  |     ✅     |   ✅\*   |  ✅\*   | ✅\*  |
+| Account checkout `/orders`, My orders, cancel   |     –      |    ✅    |    –    |   –   |
+| POS `/orders/in-store`                          |     –      |    –     |   ✅    |  ✅   |
+| Products, categories, stock, ledger, all orders |     –      |    –     |   ✅    |  ✅   |
+| Users                                           |     –      |    –     |    –    |  ✅   |
+| Shop settings (currency) — read                 |     ✅     |    ✅    |   ✅    |  ✅   |
+| Shop settings (currency) — change               |     –      |    –     |    –    |  ✅   |
 
 \* Allowed but pointless for signed-in users — use the account checkout for customers and the POS for staff.
 
@@ -486,16 +546,16 @@ Same as before, except `phone` in `POST /users` and `PATCH /users/{id}` is now a
 
 ## 8. Error cheat sheet
 
-| Status | Typical cause in these features | What to show |
-|---|---|---|
-| 400 + `fieldErrors` | validation (phone parts, required fields, wrong stock sign, not enough cash) | messages next to fields (keys can be dotted: `phone.number`, `items[0].quantity`) |
-| 401 | not signed in / session expired (cookie already cleared by the BFF) | sign-in prompt |
-| 403 | wrong role, or a cross-site write | "You don't have permission" |
-| 404 | unknown product/category/order, or someone else's order | not-found state |
-| 409 + `fieldErrors` keyed by productId | not enough stock (checkout, POS, or removing more stock than exists) | highlight cart lines / the product |
-| 409 + `fieldErrors.phone` / `.email` / `.name` | duplicate phone / email / sibling category name | message on that field |
-| 409 (no fields) | illegal status change, deleting a non-empty category, cancelling a non-pending order | `error.message` (server text is user-friendly) |
-| 502 / 504 | backend down / slow (from the BFF) | retry banner |
+| Status                                         | Typical cause in these features                                                      | What to show                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| 400 + `fieldErrors`                            | validation (phone parts, required fields, wrong stock sign, not enough cash)         | messages next to fields (keys can be dotted: `phone.number`, `items[0].quantity`) |
+| 401                                            | not signed in / session expired (cookie already cleared by the BFF)                  | sign-in prompt                                                                    |
+| 403                                            | wrong role, or a cross-site write                                                    | "You don't have permission"                                                       |
+| 404                                            | unknown product/category/order, or someone else's order                              | not-found state                                                                   |
+| 409 + `fieldErrors` keyed by productId         | not enough stock (checkout, POS, or removing more stock than exists)                 | highlight cart lines / the product                                                |
+| 409 + `fieldErrors.phone` / `.email` / `.name` | duplicate phone / email / sibling category name                                      | message on that field                                                             |
+| 409 (no fields)                                | illegal status change, deleting a non-empty category, cancelling a non-pending order | `error.message` (server text is user-friendly)                                    |
+| 502 / 504                                      | backend down / slow (from the BFF)                                                   | retry banner                                                                      |
 
 ---
 
