@@ -6,6 +6,7 @@ import {
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
+import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import {
@@ -126,9 +127,12 @@ export default function CategoriesAdminPage() {
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       {c.imageUrl ? (
-                        <img
+                        <Image
                           src={c.imageUrl}
                           alt=""
+                          width={20}
+                          height={20}
+                          unoptimized
                           className="size-5 shrink-0 rounded object-cover ring-1 ring-border"
                         />
                       ) : (

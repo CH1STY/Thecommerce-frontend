@@ -1,9 +1,9 @@
 "use client";
 
 import { ChevronRightIcon, FolderIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useMemo, useState } from "react";
 import { Select } from "@/components/common";
-import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 import type { CategoryNode } from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
@@ -122,15 +122,21 @@ export function CategoryNav({
     return found ? found.id : null;
   }, [nodes, selected]);
 
-  const [openId, setOpenId] = useState<number | null>(activeSiblingId);
+  const [openState, setOpenState] = useState<{
+    activeSiblingId: number | null;
+    openId: number | null;
+  } | null>(null);
+  const openId =
+    openState?.activeSiblingId === activeSiblingId
+      ? openState.openId
+      : activeSiblingId;
 
-  // When selected changes, sync open branch to the new selection
-  useEffect(() => {
-    setOpenId(activeSiblingId);
-  }, [activeSiblingId]);
+  function setOpenId(nextOpenId: number | null) {
+    setOpenState({ activeSiblingId, openId: nextOpenId });
+  }
 
   function handleToggle(nodeId: number) {
-    setOpenId((current) => (current === nodeId ? null : nodeId));
+    setOpenId(openId === nodeId ? null : nodeId);
   }
 
   return (
@@ -161,9 +167,12 @@ export function CategoryNav({
                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
               >
                 {node.imageUrl ? (
-                  <img
+                  <Image
                     src={node.imageUrl}
                     alt=""
+                    width={20}
+                    height={20}
+                    unoptimized
                     loading="lazy"
                     className="size-5 shrink-0 rounded object-cover ring-1 ring-border"
                   />
