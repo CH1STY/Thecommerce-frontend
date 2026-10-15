@@ -1,16 +1,20 @@
 "use client";
 
+import { ChevronRightIcon, FolderIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 import type { CategoryNode } from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
+import { cn } from "@/lib/utils";
 
 export interface FlatCategory {
   id: number;
   name: string;
   depth: number;
   parentId: number | null;
+  imageUrl?: string | null;
 }
 
 export function flattenCategories(
@@ -18,7 +22,13 @@ export function flattenCategories(
   depth = 0,
 ): FlatCategory[] {
   return nodes.flatMap((n) => [
-    { id: n.id, name: n.name, depth, parentId: n.parentId },
+    {
+      id: n.id,
+      name: n.name,
+      depth,
+      parentId: n.parentId,
+      imageUrl: n.imageUrl,
+    },
     ...flattenCategories(n.children, depth + 1),
   ]);
 }
@@ -84,6 +94,16 @@ export function CategorySelect({
   );
 }
 
+function isDescendant(node: CategoryNode, targetId: number | null): boolean {
+  if (targetId === null) return false;
+  for (const child of node.children) {
+    if (child.id === targetId || isDescendant(child, targetId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function CategoryNav({
   nodes,
   selected,
@@ -93,31 +113,99 @@ export function CategoryNav({
   selected: number | null;
   onSelect: (id: number | null) => void;
 }) {
+  // Find which sibling contains or is the selected category
+  const activeSiblingId = useMemo(() => {
+    if (selected === null) return null;
+    const found = nodes.find(
+      (n) => n.id === selected || isDescendant(n, selected),
+    );
+    return found ? found.id : null;
+  }, [nodes, selected]);
+
+  const [openId, setOpenId] = useState<number | null>(activeSiblingId);
+
+  // When selected changes, sync open branch to the new selection
+  useEffect(() => {
+    setOpenId(activeSiblingId);
+  }, [activeSiblingId]);
+
+  function handleToggle(nodeId: number) {
+    setOpenId((current) => (current === nodeId ? null : nodeId));
+  }
+
   return (
-    <ul className="space-y-0.5">
-      {nodes.map((node) => (
-        <li key={node.id}>
-          <Button
-            type="button"
-            size="sm"
-            variant={selected === node.id ? "secondary" : "ghost"}
-            aria-current={selected === node.id ? "true" : undefined}
-            onClick={() => onSelect(node.id)}
-            className={`w-full justify-start font-normal ${selected === node.id ? "font-medium" : "text-muted-foreground"}`}
-          >
-            {node.name}
-          </Button>
-          {node.children.length > 0 && (
-            <div className="ml-3 border-l pl-2">
-              <CategoryNav
-                nodes={node.children}
-                selected={selected}
-                onSelect={onSelect}
-              />
+    <ul className="space-y-1">
+      {nodes.map((node) => {
+        const hasChildren = node.children.length > 0;
+        const isOpen = openId === node.id;
+        const isSelected = selected === node.id;
+
+        return (
+          <li key={node.id} className="space-y-1">
+            <div
+              className={cn(
+                "group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors",
+                isSelected
+                  ? "bg-secondary font-medium text-secondary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(node.id);
+                  if (hasChildren && !isOpen) {
+                    setOpenId(node.id);
+                  }
+                }}
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+              >
+                {node.imageUrl ? (
+                  <img
+                    src={node.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="size-5 shrink-0 rounded object-cover ring-1 ring-border"
+                  />
+                ) : (
+                  <FolderIcon className="size-4 shrink-0 text-muted-foreground/60" />
+                )}
+                <span className="truncate">{node.name}</span>
+              </button>
+
+              {hasChildren && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggle(node.id);
+                  }}
+                  className="ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label={isOpen ? `Collapse ${node.name}` : `Expand ${node.name}`}
+                  aria-expanded={isOpen}
+                >
+                  <ChevronRightIcon
+                    className={cn(
+                      "size-3.5 transition-transform duration-200",
+                      isOpen && "rotate-90",
+                    )}
+                  />
+                </button>
+              )}
             </div>
-          )}
-        </li>
-      ))}
+
+            {hasChildren && isOpen && (
+              <div className="ml-3 border-l border-border/60 pl-2">
+                <CategoryNav
+                  nodes={node.children}
+                  selected={selected}
+                  onSelect={onSelect}
+                />
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

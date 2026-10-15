@@ -36,12 +36,14 @@ export interface SessionResponse {
 export interface CategoryRef {
   id: number;
   name: string;
+  imageUrl?: string | null;
 }
 
 export interface CategoryNode {
   id: number;
   name: string;
   parentId: number | null;
+  imageUrl?: string | null;
   children: CategoryNode[];
 }
 
@@ -49,6 +51,7 @@ export interface CategoryDetail {
   id: number;
   name: string;
   parentId: number | null;
+  imageUrl?: string | null;
   path: CategoryRef[];
   children: CategoryRef[];
 }
@@ -82,6 +85,8 @@ export interface ProductQuery {
   ids?: number[];
   sort?: ProductSort;
   limit?: number;
+  page?: number;
+  size?: number;
 }
 
 export interface PriceRange {

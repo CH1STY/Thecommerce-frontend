@@ -1,5 +1,5 @@
 import { api } from "@/lib/api-client";
-import type { PriceRange, Product, ProductQuery } from "@/lib/types";
+import type { Page, PriceRange, Product, ProductQuery } from "@/lib/types";
 
 // Spring expects lists as `ids=1,2,3` (axios would send `ids[]=1&ids[]=2`).
 const list = (values: number[] | undefined) =>
@@ -16,6 +16,22 @@ export function fetchProducts(query: ProductQuery = {}) {
       ids: list(query.ids),
       sort: query.sort && query.sort !== "FEATURED" ? query.sort : undefined,
       limit: query.limit,
+    },
+  });
+}
+
+export function fetchProductsPaged(query: ProductQuery = {}) {
+  return api.get<Page<Product>>("/products", {
+    params: {
+      q: query.q?.trim() || undefined,
+      categoryId: query.categoryId,
+      inStock: query.inStock || undefined,
+      minPrice: query.minPrice,
+      maxPrice: query.maxPrice,
+      ids: list(query.ids),
+      sort: query.sort && query.sort !== "FEATURED" ? query.sort : undefined,
+      page: query.page ?? 0,
+      size: query.size ?? 24,
     },
   });
 }

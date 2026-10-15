@@ -398,8 +398,15 @@ function Categories({ section }: { section: CategoriesSection }) {
 
   const tiles = (
     section.items.length > 0
-      ? section.items.map((item) => ({ node: byId.get(item.categoryId), imageUrl: item.imageUrl }))
-      : (tree.data ?? []).map((node) => ({ node, imageUrl: "" }))
+      ? section.items.map((item) => ({
+          node: byId.get(item.categoryId),
+          imageUrl:
+            item.imageUrl || byId.get(item.categoryId)?.imageUrl || "",
+        }))
+      : (tree.data ?? []).map((node) => ({
+          node,
+          imageUrl: node.imageUrl || "",
+        }))
   ).filter((t): t is { node: CategoryNode; imageUrl: string } => t.node !== undefined);
 
   if (tree.loading && !tree.data) {

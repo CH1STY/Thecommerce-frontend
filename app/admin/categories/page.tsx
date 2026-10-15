@@ -125,7 +125,15 @@ export default function CategoriesAdminPage() {
                     style={{ paddingLeft: `${0.75 + c.depth * 1.25}rem` }}
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                      {c.imageUrl ? (
+                        <img
+                          src={c.imageUrl}
+                          alt=""
+                          className="size-5 shrink-0 rounded object-cover ring-1 ring-border"
+                        />
+                      ) : (
+                        <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                      )}
                       <span className="truncate">{c.name}</span>
                     </span>
                     <span className="flex shrink-0 gap-1">
@@ -196,6 +204,7 @@ function CategoryForm({
   const [parentId, setParentId] = useState<number | null>(
     category?.parentId ?? null,
   );
+  const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -209,9 +218,17 @@ function CategoryForm({
         ? await api.put<CategoryDetail>(`/categories/${category.id}`, {
             name,
             parentId,
+            imageUrl: imageUrl.trim() || null,
           })
-        : await api.post<CategoryDetail>("/categories", { name, parentId });
-      if (!category) setName("");
+        : await api.post<CategoryDetail>("/categories", {
+            name,
+            parentId,
+            imageUrl: imageUrl.trim() || null,
+          });
+      if (!category) {
+        setName("");
+        setImageUrl("");
+      }
       onSaved(result.name);
     } catch (e) {
       setError(toApiError(e));
@@ -247,6 +264,14 @@ function CategoryForm({
             onChange={setParentId}
             emptyLabel="— Top level —"
             exclude={category ? subtreeIds(tree, category.id) : undefined}
+          />
+        </FormField>
+        <FormField label="Image URL" error={fe.imageUrl}>
+          <TextInput
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://... or /api/uploads/..."
+            maxLength={2048}
           />
         </FormField>
         {!category && submitButton}

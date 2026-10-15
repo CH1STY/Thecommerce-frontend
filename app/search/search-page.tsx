@@ -15,7 +15,12 @@ import {
   useCategoryTree,
   type FlatCategory,
 } from "@/components/categories";
-import { EmptyState, ErrorBanner, Select } from "@/components/common";
+import {
+  EmptyState,
+  ErrorBanner,
+  Pager,
+  Select,
+} from "@/components/common";
 import {
   ProductGrid,
   ProductGridSkeleton,
@@ -38,7 +43,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
-import { fetchPriceRange, fetchProducts } from "@/lib/products";
+import { fetchPriceRange, fetchProductsPaged } from "@/lib/products";
 import { useSettings } from "@/lib/settings";
 import type { ProductSort } from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
@@ -67,6 +72,7 @@ interface Filters {
   minPrice: number | undefined;
   maxPrice: number | undefined;
   sort: ProductSort;
+  page: number;
 }
 
 type FilterUpdate = Partial<{
@@ -75,17 +81,20 @@ type FilterUpdate = Partial<{
   inStock: boolean;
   price: [number | undefined, number | undefined];
   sort: ProductSort;
+  page: number;
 }>;
 
 export function SearchPage() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [shown, setShown] = useState({ key: "", count: PAGE_SIZE });
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const categoryParam = params.get("category");
   const sortParam = params.get("sort") as ProductSort | null;
+  const pageParam = params.get("page");
+  const page = pageParam && /^\d+$/.test(pageParam) ? Math.max(0, Number(pageParam) - 1) : 0;
+
   const filters: Filters = {
     q: params.get("q")?.trim() ?? "",
     categoryId:
@@ -94,6 +103,7 @@ export function SearchPage() {
     minPrice: numberParam(params.get("minPrice")),
     maxPrice: numberParam(params.get("maxPrice")),
     sort: SORTS.some((s) => s.value === sortParam) ? sortParam! : "FEATURED",
+    page,
   };
   const { q, categoryId, inStock, minPrice, maxPrice, sort } = filters;
 
@@ -113,22 +123,23 @@ export function SearchPage() {
   }
   const category = categoryPath.at(-1);
 
-  const resultKey = JSON.stringify([q, categoryId, inStock, minPrice, maxPrice, sort]);
+  const resultKey = JSON.stringify([q, categoryId, inStock, minPrice, maxPrice, sort, page]);
   const products = useLoad(`search|${resultKey}`, () =>
-    fetchProducts({
+    fetchProductsPaged({
       q,
       categoryId: categoryId ?? undefined,
       inStock,
       minPrice,
       maxPrice,
       sort,
+      page,
+      size: PAGE_SIZE,
     }),
   );
-  const visibleCount = shown.key === resultKey ? shown.count : PAGE_SIZE;
   const layout = usePageLayout("search");
 
   const resultIds = useMemo(
-    () => (products.loading ? undefined : products.data?.map((p) => p.id)),
+    () => (products.loading ? undefined : products.data?.content.map((p) => p.id)),
     [products.loading, products.data],
   );
   const searchInfo = useMemo(
@@ -140,6 +151,14 @@ export function SearchPage() {
     const query = new URLSearchParams(params.toString());
     const set = (key: string, value: string | null | undefined) =>
       value ? query.set(key, value) : query.delete(key);
+
+    const isPageOnly = next.page !== undefined && Object.keys(next).length === 1;
+    if (!isPageOnly) {
+      query.delete("page");
+    } else if (next.page !== undefined) {
+      set("page", next.page > 0 ? String(next.page + 1) : null);
+    }
+
     if (next.q !== undefined) set("q", next.q.trim() || null);
     if (next.categoryId !== undefined) {
       set("category", next.categoryId === null ? null : String(next.categoryId));
@@ -164,7 +183,7 @@ export function SearchPage() {
   }
 
   const title = q ? `Results for “${q}”` : category ? category.name : "All products";
-  const count = products.data?.length;
+  const count = products.data?.totalElements;
   const activeChips: { label: string; clear: () => void }[] = [];
   if (q) activeChips.push({ label: `“${q}”`, clear: () => update({ q: "" }) });
   if (category) activeChips.push({ label: category.name, clear: () => update({ categoryId: null }) });
@@ -317,7 +336,7 @@ export function SearchPage() {
 
             {products.loading && !products.data ? (
               <ProductGridSkeleton count={6} columns={3} />
-            ) : products.data && products.data.length === 0 ? (
+            ) : products.data && products.data.totalElements === 0 ? (
               <EmptyState
                 icon={PackageSearchIcon}
                 title="No products found"
@@ -336,19 +355,20 @@ export function SearchPage() {
             ) : (
               products.data && (
                 <div className={products.loading ? "opacity-60 transition-opacity" : undefined}>
-                  <ProductGrid products={products.data.slice(0, visibleCount)} columns={3} />
-                  {products.data.length > visibleCount && (
+                  <ProductGrid products={products.data.content} columns={3} />
+                  {products.data.totalPages > 1 && (
                     <div className="mt-8 flex flex-col items-center gap-2">
                       <p className="text-xs text-muted-foreground">
-                        Showing {visibleCount} of {products.data.length}
+                        Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, count ?? 0)} of {count}
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShown({ key: resultKey, count: visibleCount + PAGE_SIZE })}
-                      >
-                        Show more
-                      </Button>
+                      <Pager
+                        page={page}
+                        totalPages={products.data.totalPages}
+                        onPage={(newPage) => {
+                          update({ page: newPage });
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                      />
                     </div>
                   )}
                 </div>
