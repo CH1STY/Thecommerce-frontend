@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    instantInsights: {
+      validationLevel: "manual-warning",
+    },
+  },
   // The storefront designer previews pages in a same-origin iframe; nobody else may frame the shop.
   async headers() {
     return [
