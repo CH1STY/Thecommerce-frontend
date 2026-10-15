@@ -1,0 +1,49 @@
+when:
+  - event: [push, pull_request, manual]
+    branch: main
+
+labels:
+  backend: docker
+
+steps:
+  - name: checks-and-build
+    image: node:18-alpine
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_URL:
+        from_secret: NEXT_PUBLIC_API_URL
+    commands:
+      - npm ci
+      - npm run lint
+      - npm run build
+
+  - name: docker-build
+    image: docker:29-cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      NEXT_PUBLIC_API_URL:
+        from_secret: NEXT_PUBLIC_API_URL
+    commands:
+      - docker build --build-arg NEXT_PUBLIC_API_URL="$${NEXT_PUBLIC_API_URL}" --tag "thecommerce-frontend:$${CI_COMMIT_SHA}" .
+    when:
+      - event: [push, manual]
+        branch: main
+
+  - name: deploy
+    image: docker:29-cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      NEXT_PUBLIC_API_URL:
+        from_secret: NEXT_PUBLIC_API_URL
+    commands:
+      - |
+        set -eu
+        : "$${NEXT_PUBLIC_API_URL:?Woodpecker secret NEXT_PUBLIC_API_URL must be set}"
+        export NEXT_PUBLIC_API_URL="$${NEXT_PUBLIC_API_URL}"
+        export APP_IMAGE="thecommerce-frontend:$${CI_COMMIT_SHA}"
+        docker compose up -d
+    when:
+      - event: [push, manual]
+        branch: main
