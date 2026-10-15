@@ -1,11 +1,19 @@
-version: '3.8'
-
 services:
   frontend:
+    image: ${APP_IMAGE:-thecommerce-frontend:local}
     build: .
     container_name: thecommerce-frontend
+    # Published on host port 4445. All /api/** calls are proxied server-side
+    # to the backend over the private "thecommerce-net" network.
     ports:
-      - "3000:3000"
+      - "4445:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      BACKEND_URL: ${BACKEND_URL:-http://thecommerce-backend:8080}
+    networks:
+      - thecommerce
     restart: unless-stopped
+
+networks:
+  thecommerce:
+    name: thecommerce-net
+    external: true
