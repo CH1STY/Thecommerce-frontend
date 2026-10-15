@@ -4,7 +4,7 @@ import { LockIcon, ShieldAlertIcon, StoreIcon } from "lucide-react";
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { EmptyState, Loading } from "@/components/common";
 import { SiteHeader } from "@/components/storefront/site-header";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export const Header = SiteHeader;
 const FULL_WIDTH = ["/", "/search"];
 const WIDE = ["/admin/storefront"];
 
-export function Main({ children }: { children: ReactNode }) {
+function MainContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const full = FULL_WIDTH.includes(pathname);
   const wide = WIDE.includes(pathname);
@@ -55,6 +55,20 @@ export function Main({ children }: { children: ReactNode }) {
     >
       {children}
     </main>
+  );
+}
+
+export function Main({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+          {children}
+        </main>
+      }
+    >
+      <MainContent>{children}</MainContent>
+    </Suspense>
   );
 }
 
@@ -91,23 +105,34 @@ export function Footer() {
     <footer className="no-print mt-12 border-t bg-muted/40">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-3 lg:col-span-2">
-          <Link href="/" className="flex items-center gap-2 font-heading text-lg font-semibold">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-heading text-lg font-semibold"
+          >
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <StoreIcon className="size-4" />
             </span>
             TheCommerce
           </Link>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Browse freely, then sign in or check out as a guest — your order history follows your phone number.
+            Browse freely, then sign in or check out as a guest — your order
+            history follows your phone number.
           </p>
         </div>
         {columns.map((column) => (
-          <nav key={column.title} aria-label={column.title} className="space-y-3">
+          <nav
+            key={column.title}
+            aria-label={column.title}
+            className="space-y-3"
+          >
             <p className="text-sm font-semibold">{column.title}</p>
             <ul className="space-y-2 text-sm">
               {column.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-muted-foreground hover:text-foreground">
+                  <Link
+                    href={link.href}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
                     {link.label}
                   </Link>
                 </li>
@@ -117,7 +142,9 @@ export function Footer() {
         ))}
       </div>
       <div className="border-t">
-        <p className="mx-auto max-w-7xl px-4 py-4 text-xs text-muted-foreground">TheCommerce</p>
+        <p className="mx-auto max-w-7xl px-4 py-4 text-xs text-muted-foreground">
+          TheCommerce
+        </p>
       </div>
     </footer>
   );

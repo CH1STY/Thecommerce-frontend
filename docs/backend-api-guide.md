@@ -256,18 +256,26 @@ const numberError = err.fieldErrors["phone.number"] ?? err.fieldErrors["phone"];
 
 ```ts
 // lib/products.ts wraps these (lists are sent as `ids=1,2,3`, not axios' `ids[]=`).
-fetchProducts({ q, categoryId, inStock: true, minPrice: 10, maxPrice: 50, sort: "PRICE_ASC", limit: 24 });
+fetchProducts({
+  q,
+  categoryId,
+  inStock: true,
+  minPrice: 10,
+  maxPrice: 50,
+  sort: "PRICE_ASC",
+  limit: 24,
+});
 ```
 
-| Param                  | Meaning                                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| `q`                    | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters   |
-| `categoryId`           | that category **plus every sub-category below it** (any depth)                                |
-| `inStock=true`         | hide sold-out products (`stockQuantity === 0`)                                                |
-| `minPrice`, `maxPrice` | inclusive price bounds (≥ 0; `maxPrice < minPrice` → 400 `fieldErrors.maxPrice`)              |
-| `ids=3,1,7`            | only these products (max 100); with the default sort they come back **in the given order**    |
+| Param                  | Meaning                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `q`                    | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters                    |
+| `categoryId`           | that category **plus every sub-category below it** (any depth)                                                 |
+| `inStock=true`         | hide sold-out products (`stockQuantity === 0`)                                                                 |
+| `minPrice`, `maxPrice` | inclusive price bounds (≥ 0; `maxPrice < minPrice` → 400 `fieldErrors.maxPrice`)                               |
+| `ids=3,1,7`            | only these products (max 100); with the default sort they come back **in the given order**                     |
 | `sort`                 | `FEATURED` (default, catalogue order) · `NEWEST` · `PRICE_ASC` · `PRICE_DESC` · `NAME_ASC`; other values → 400 |
-| `limit`                | 1–100 (otherwise 400 `fieldErrors.limit`); omitted = everything                               |
+| `limit`                | 1–100 (otherwise 400 `fieldErrors.limit`); omitted = everything                                                |
 
 - All optional and combinable. Response is a plain **array** (not paged).
 - Unknown `categoryId` → **404** (e.g. a stale link) — show "category not found" and fall back to all products.
@@ -277,18 +285,18 @@ fetchProducts({ q, categoryId, inStock: true, minPrice: 10, maxPrice: 50, sort: 
 
 Search-page helpers (all public, same `q` / `categoryId` / `inStock` meaning as above):
 
-| Call                                                          | Returns                                                                                                   |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET /products/price-range?q=&categoryId=&inStock=`            | `{ min, max }` of the matches (both `null` when nothing matches) — bounds for a price slider              |
-| `GET /products/similar?q=&categoryId=&inStock=&limit=8`        | products **not** in the results, from the matches' own/sibling categories, categories named like a search word, or matching single words; random order, in-stock first; `[]` when nothing relates |
-| `GET /products/random?limit=8&inStock=&exclude=1,2,3`          | random products, never the `exclude` ids (max 200)                                                        |
+| Call                                                    | Returns                                                                                                                                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /products/price-range?q=&categoryId=&inStock=`     | `{ min, max }` of the matches (both `null` when nothing matches) — bounds for a price slider                                                                                                      |
+| `GET /products/similar?q=&categoryId=&inStock=&limit=8` | products **not** in the results, from the matches' own/sibling categories, categories named like a search word, or matching single words; random order, in-stock first; `[]` when nothing relates |
+| `GET /products/random?limit=8&inStock=&exclude=1,2,3`   | random products, never the `exclude` ids (max 200)                                                                                                                                                |
 
 ### 4.1b Storefront layouts (designer)
 
 ```ts
-api.get<PageLayoutResponse>("/layouts/home");   // public: { page, sections: [...] | null, updatedAt }
-api.put("/layouts/home", { sections });          // ADMIN: publish
-api.delete("/layouts/home");                     // ADMIN: back to the built-in default (204)
+api.get<PageLayoutResponse>("/layouts/home"); // public: { page, sections: [...] | null, updatedAt }
+api.put("/layouts/home", { sections }); // ADMIN: publish
+api.delete("/layouts/home"); // ADMIN: back to the built-in default (204)
 ```
 
 - Pages: `home`, `search` (anything else → 404). `sections: null` = not customised → use `defaultSections(page)`.
@@ -405,18 +413,18 @@ Stock is checked and taken **at the moment the order is placed**. If anything is
 `fieldErrors` is keyed by **productId** → highlight those cart lines, show the messages, let the user adjust, and
 re-fetch the products. Nothing was taken (all-or-nothing).
 
-### 5.5 My orders
+### 5.5 Orders & tracking
 
 ```ts
-api.get<Page<Order>>("/orders/me", { params: { page: 0, size: 20 } }); // newest first
-api.get<Order>(`/orders/${id}`);
-api.post<Order>(`/orders/${id}/cancel`);
+api.get<Page<Order>>("/orders/me", { params: { page: 0, size: 20 } }); // newest first (CUSTOMER)
+api.get<Order>(`/orders/${id}`); // public order tracking (anyone with the link / SMS)
+api.post<Order>(`/orders/${id}/cancel`); // cancel own pending order (CUSTOMER)
 ```
 
-- The list now mixes online orders, guest orders and in-store purchases made with the user's phone. Show a badge from
+- `GET /orders/{id}` is public so customer order tracking links (sent via SMS or opened after checkout) can be accessed by anyone with the order id without requiring login.
+- The list in `/orders/me` mixes online orders, guest orders and in-store purchases made with the user's phone. Show a badge from
   `channel` (`ONLINE` → "Online", `IN_STORE` → "In store") and, for in-store ones, the `receipt` (§6.1).
-- **Cancel** button only when `status === "PENDING"` (otherwise 409). Stock is returned automatically.
-- Someone else's order id → **404** (not 403) — treat as "not found".
+- **Cancel** button only when `status === "PENDING"` (otherwise 409). Stock is returned automatically. Ownership is enforced on cancel.
 
 ---
 
@@ -557,17 +565,18 @@ api.put<StoreSettings>("/settings", { currency: "BDT" }); // ADMIN only; case-in
 
 ## 7. Who can do what (for showing/hiding UI)
 
-| Feature                                         | Signed out | CUSTOMER | MANAGER | ADMIN |
-| ----------------------------------------------- | :--------: | :------: | :-----: | :---: |
-| Browse/search products & categories             |     ✅     |    ✅    |   ✅    |  ✅   |
-| Guest checkout `/orders/guest`                  |     ✅     |   ✅\*   |  ✅\*   | ✅\*  |
-| Account checkout `/orders`, My orders, cancel   |     –      |    ✅    |    –    |   –   |
-| POS `/orders/in-store`                          |     –      |    –     |   ✅    |  ✅   |
-| Products, categories, stock, ledger, all orders |     –      |    –     |   ✅    |  ✅   |
-| Users                                           |     –      |    –     |    –    |  ✅   |
-| Shop settings (currency) — read                 |     ✅     |    ✅    |   ✅    |  ✅   |
-| Shop settings (currency) — change               |     –      |    –     |    –    |  ✅   |
-| Storefront layouts — read / publish & reset     |  ✅ / –    | ✅ / –   | ✅ / –  | ✅ / ✅ |
+| Feature                                         | Signed out | CUSTOMER | MANAGER |  ADMIN  |
+| ----------------------------------------------- | :--------: | :------: | :-----: | :-----: |
+| Browse/search products & categories             |     ✅     |    ✅    |   ✅    |   ✅    |
+| Guest checkout `/orders/guest`                  |     ✅     |   ✅\*   |  ✅\*   |  ✅\*   |
+| Order tracking `/orders/{id}`                   |     ✅     |    ✅    |   ✅    |   ✅    |
+| Account checkout `/orders`, My orders, cancel   |     –      |    ✅    |    –    |    –    |
+| POS `/orders/in-store`                          |     –      |    –     |   ✅    |   ✅    |
+| Products, categories, stock, ledger, all orders |     –      |    –     |   ✅    |   ✅    |
+| Users                                           |     –      |    –     |    –    |   ✅    |
+| Shop settings (currency) — read                 |     ✅     |    ✅    |   ✅    |   ✅    |
+| Shop settings (currency) — change               |     –      |    –     |    –    |   ✅    |
+| Storefront layouts — read / publish & reset     |   ✅ / –   |  ✅ / –  | ✅ / –  | ✅ / ✅ |
 
 \* Allowed but pointless for signed-in users — use the account checkout for customers and the POS for staff.
 

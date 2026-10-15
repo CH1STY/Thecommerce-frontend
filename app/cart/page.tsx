@@ -1,7 +1,13 @@
 "use client";
 
-import { MinusIcon, PlusIcon, ShoppingCartIcon, Trash2Icon } from "lucide-react";
+import {
+  MinusIcon,
+  PlusIcon,
+  ShoppingCartIcon,
+  Trash2Icon,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
   EmptyState,
@@ -15,7 +21,6 @@ import {
   TextArea,
   TextInput,
 } from "@/components/common";
-import { OrderCard } from "@/components/OrderCard";
 import {
   EMPTY_PHONE,
   PHONE_ERROR_KEYS,
@@ -43,10 +48,10 @@ import { useLoad } from "@/lib/use-load";
 import { cn } from "@/lib/utils";
 
 export default function CartPage() {
+  const router = useRouter();
   const lines = useCart();
   const { user } = useSession();
   const { money } = useSettings();
-  const [placed, setPlaced] = useState<Order | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
   const [guest, setGuest] = useState(false);
@@ -96,7 +101,7 @@ export default function CartPage() {
             shippingAddress: addressValue.trim() || undefined,
           });
       cart.clear();
-      setPlaced(order);
+      router.push(`/orders/${order.id}`);
     } catch (e) {
       const apiError = toApiError(e);
       setError(apiError);
@@ -104,41 +109,6 @@ export default function CartPage() {
     } finally {
       setBusy(false);
     }
-  }
-
-  if (placed) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader
-          title={`Thank you — order #${placed.id} placed`}
-          className="mb-2"
-        />
-        {placed.customer === null ? (
-          <Notice>
-            Keep your order number <strong>#{placed.id}</strong>. To track it,{" "}
-            <Link href="/register">
-              create an account with the same phone number
-            </Link>{" "}
-            — the order will show up in your history.
-          </Notice>
-        ) : user ? (
-          <Notice tone="success">
-            You can follow this order in{" "}
-            <Link href="/account/orders">My orders</Link>.
-          </Notice>
-        ) : (
-          <Notice tone="success">
-            This phone number belongs to an account —{" "}
-            <Link href="/login?next=/account/orders">sign in</Link> to track
-            the order.
-          </Notice>
-        )}
-        <OrderCard order={placed} />
-        <Button asChild variant="outline">
-          <Link href="/">Continue shopping</Link>
-        </Button>
-      </div>
-    );
   }
 
   if (lines.length === 0) {

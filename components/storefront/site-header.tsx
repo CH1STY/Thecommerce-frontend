@@ -103,10 +103,16 @@ export function SiteHeader() {
       <div className="hidden border-t lg:block">
         <div className="mx-auto flex h-11 max-w-7xl items-center gap-2 px-4">
           <CategoryBar />
-          <nav aria-label="Quick links" className="ml-auto flex items-center gap-1 text-sm">
+          <nav
+            aria-label="Quick links"
+            className="ml-auto flex items-center gap-1 text-sm"
+          >
             <QuickLink href="/search?sort=NEWEST">New arrivals</QuickLink>
             <QuickLink href="/search?inStock=true">In stock</QuickLink>
-            {user?.role === "CUSTOMER" && <QuickLink href="/account/orders">My orders</QuickLink>}
+            <QuickLink href="/track">Track order</QuickLink>
+            {user?.role === "CUSTOMER" && (
+              <QuickLink href="/account/orders">My orders</QuickLink>
+            )}
             {isStaff(user) && <QuickLink href="/admin">Staff area</QuickLink>}
           </nav>
         </div>
@@ -131,7 +137,12 @@ function Logo() {
 
 function QuickLink({ href, children }: { href: string; children: string }) {
   return (
-    <Button asChild variant="ghost" size="sm" className="font-normal text-muted-foreground hover:text-foreground">
+    <Button
+      asChild
+      variant="ghost"
+      size="sm"
+      className="font-normal text-muted-foreground hover:text-foreground"
+    >
       <Link href={href}>{children}</Link>
     </Button>
   );
@@ -184,13 +195,23 @@ function AccountMenu() {
   if (user === null) {
     return (
       <>
-        <Button asChild variant="ghost" className="h-9 px-2" aria-label="Sign in">
+        <Button
+          asChild
+          variant="ghost"
+          className="h-9 px-2"
+          aria-label="Sign in"
+        >
           <Link href="/login">
             <UserIcon className="size-5" />
             <span className="hidden text-sm lg:inline">Sign in</span>
           </Link>
         </Button>
-        <Button asChild size="sm" variant="outline" className="hidden lg:inline-flex">
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="hidden lg:inline-flex"
+        >
           <Link href="/register">Register</Link>
         </Button>
       </>
@@ -205,7 +226,11 @@ function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 px-1.5" aria-label="Account menu">
+        <Button
+          variant="ghost"
+          className="h-9 gap-2 px-1.5"
+          aria-label="Account menu"
+        >
           <Avatar size="sm">
             <AvatarFallback>{initials(user.fullName)}</AvatarFallback>
           </Avatar>
@@ -217,7 +242,9 @@ function AccountMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="truncate font-medium text-foreground">{user.fullName}</span>
+          <span className="truncate font-medium text-foreground">
+            {user.fullName}
+          </span>
           <span className="truncate text-xs font-normal text-muted-foreground">
             {user.email} · {humanize(user.role)}
           </span>
@@ -302,7 +329,8 @@ function SearchBox() {
   const suggestions = useLoad(term.length >= 2 ? `suggest|${term}` : null, () =>
     fetchProducts({ q: term, limit: 6 }),
   );
-  const items = term.length >= 2 && term === text.trim() ? (suggestions.data ?? []) : [];
+  const items =
+    term.length >= 2 && term === text.trim() ? (suggestions.data ?? []) : [];
   const showList = open && text.trim().length >= 2;
 
   function go(query: string) {
@@ -341,7 +369,8 @@ function SearchBox() {
       ref={box}
       className="relative w-full"
       onBlur={(e) => {
-        if (!box.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
+        if (!box.current?.contains(e.relatedTarget as Node | null))
+          setOpen(false);
       }}
     >
       <form role="search" onSubmit={onSubmit}>
@@ -362,7 +391,9 @@ function SearchBox() {
             aria-expanded={showList}
             aria-controls={listId}
             aria-autocomplete="list"
-            aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+            aria-activedescendant={
+              active >= 0 ? `${listId}-${active}` : undefined
+            }
             className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
             type="search"
             enterKeyHint="search"
@@ -382,7 +413,11 @@ function SearchBox() {
               <XIcon />
             </Button>
           )}
-          <Button type="submit" size="sm" className="ml-1 h-8 rounded-full px-4">
+          <Button
+            type="submit"
+            size="sm"
+            className="ml-1 h-8 rounded-full px-4"
+          >
             Search
           </Button>
         </div>
@@ -392,7 +427,12 @@ function SearchBox() {
           className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-lg"
           onMouseDown={(e) => e.preventDefault()}
         >
-          <ul id={listId} role="listbox" aria-label="Suggestions" className="max-h-96 overflow-y-auto p-1">
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Suggestions"
+            className="max-h-96 overflow-y-auto p-1"
+          >
             {items.map((product, index) => (
               <li
                 key={product.id}
@@ -414,19 +454,25 @@ function SearchBox() {
                     className="size-10 shrink-0 rounded-md"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{product.name}</span>
+                    <span className="block truncate font-medium">
+                      {product.name}
+                    </span>
                     {product.categoryPath.length > 0 && (
                       <span className="block truncate text-xs text-muted-foreground">
                         {product.categoryPath.map((c) => c.name).join(" › ")}
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 font-medium tabular-nums">{money(product.price)}</span>
+                  <span className="shrink-0 font-medium tabular-nums">
+                    {money(product.price)}
+                  </span>
                 </Link>
               </li>
             ))}
             {term === text.trim() && suggestions.data?.length === 0 && (
-              <li className="px-3 py-2 text-sm text-muted-foreground">No products match “{text.trim()}”.</li>
+              <li className="px-3 py-2 text-sm text-muted-foreground">
+                No products match “{text.trim()}”.
+              </li>
             )}
           </ul>
           <button
@@ -435,7 +481,8 @@ function SearchBox() {
             className="flex w-full items-center gap-2 border-t px-4 py-2.5 text-left text-sm hover:bg-accent"
           >
             <SearchIcon className="size-4 text-muted-foreground" />
-            See all results for “<span className="truncate font-medium">{text.trim()}</span>”
+            See all results for “
+            <span className="truncate font-medium">{text.trim()}</span>”
           </button>
         </div>
       )}
@@ -453,7 +500,10 @@ function CategoryBar() {
   const top = roots.slice(0, MAX_TOP_CATEGORIES);
 
   return (
-    <NavigationMenu className="max-w-none justify-start" aria-label="Categories">
+    <NavigationMenu
+      className="max-w-none justify-start"
+      aria-label="Categories"
+    >
       <NavigationMenuList className="justify-start gap-0.5">
         <NavigationMenuItem>
           <NavigationMenuTrigger className="h-8 gap-1.5 bg-primary px-3 text-primary-foreground hover:bg-primary/85 hover:text-primary-foreground focus:bg-primary/85 focus:text-primary-foreground data-open:bg-primary/85 data-open:text-primary-foreground data-open:hover:bg-primary/85 data-open:focus:bg-primary/85">
@@ -471,10 +521,17 @@ function CategoryBar() {
                   {roots.map((node) => (
                     <li key={node.id}>
                       <NavigationMenuLink asChild>
-                        <Link href={categoryHref(node.id)} className="justify-between">
-                          <span className="truncate font-medium">{node.name}</span>
+                        <Link
+                          href={categoryHref(node.id)}
+                          className="justify-between"
+                        >
+                          <span className="truncate font-medium">
+                            {node.name}
+                          </span>
                           {node.children.length > 0 && (
-                            <span className="text-xs text-muted-foreground">{node.children.length}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {node.children.length}
+                            </span>
                           )}
                         </Link>
                       </NavigationMenuLink>
@@ -495,14 +552,19 @@ function CategoryBar() {
         {top.map((node) =>
           node.children.length > 0 ? (
             <NavigationMenuItem key={node.id}>
-              <NavigationMenuTrigger className="h-8 font-normal">{node.name}</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="h-8 font-normal">
+                {node.name}
+              </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaPanel node={node} />
               </NavigationMenuContent>
             </NavigationMenuItem>
           ) : (
             <NavigationMenuItem key={node.id}>
-              <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), "h-8 font-normal")}>
+              <NavigationMenuLink
+                asChild
+                className={cn(navigationMenuTriggerStyle(), "h-8 font-normal")}
+              >
                 <Link href={categoryHref(node.id)}>{node.name}</Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
@@ -518,7 +580,10 @@ function MegaPanel({ node }: { node: CategoryNode }) {
     <div className="w-[min(92vw,48rem)] p-4">
       <div className="mb-3 flex items-center justify-between gap-4">
         <p className="font-heading text-base font-semibold">{node.name}</p>
-        <NavigationMenuLink asChild className="p-1 text-sm font-medium underline-offset-4 hover:bg-transparent hover:underline">
+        <NavigationMenuLink
+          asChild
+          className="p-1 text-sm font-medium underline-offset-4 hover:bg-transparent hover:underline"
+        >
           <Link href={categoryHref(node.id)}>
             Shop all {node.name}
             <ChevronRightIcon />
@@ -535,15 +600,25 @@ function MegaPanel({ node }: { node: CategoryNode }) {
               <ul className="mt-1 space-y-0.5">
                 {child.children.slice(0, 8).map((grandchild) => (
                   <li key={grandchild.id}>
-                    <NavigationMenuLink asChild className="p-1 text-muted-foreground hover:text-foreground">
-                      <Link href={categoryHref(grandchild.id)}>{grandchild.name}</Link>
+                    <NavigationMenuLink
+                      asChild
+                      className="p-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <Link href={categoryHref(grandchild.id)}>
+                        {grandchild.name}
+                      </Link>
                     </NavigationMenuLink>
                   </li>
                 ))}
                 {child.children.length > 8 && (
                   <li>
-                    <NavigationMenuLink asChild className="p-1 text-xs font-medium">
-                      <Link href={categoryHref(child.id)}>+{child.children.length - 8} more</Link>
+                    <NavigationMenuLink
+                      asChild
+                      className="p-1 text-xs font-medium"
+                    >
+                      <Link href={categoryHref(child.id)}>
+                        +{child.children.length - 8} more
+                      </Link>
                     </NavigationMenuLink>
                   </li>
                 )}
@@ -566,29 +641,53 @@ function MobileMenu() {
     { href: "/", label: "Home", show: true },
     { href: "/search", label: "All products", show: true },
     { href: "/search?sort=NEWEST", label: "New arrivals", show: true },
-    { href: "/account/orders", label: "My orders", show: user?.role === "CUSTOMER" },
+    { href: "/track", label: "Track order", show: true },
+    {
+      href: "/account/orders",
+      label: "My orders",
+      show: user?.role === "CUSTOMER",
+    },
     { href: "/admin", label: "Staff area", show: isStaff(user) },
   ].filter((l) => l.show);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          aria-label="Open menu"
+        >
           <MenuIcon />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 max-w-[85vw] gap-0 overflow-y-auto">
+      <SheetContent
+        side="left"
+        className="w-80 max-w-[85vw] gap-0 overflow-y-auto"
+      >
         <SheetHeader className="border-b">
           <SheetTitle>TheCommerce</SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-0.5 p-3" aria-label="Main">
           {links.map((l) => (
-            <Button key={l.href} asChild variant="ghost" className="justify-start" onClick={close}>
+            <Button
+              key={l.href}
+              asChild
+              variant="ghost"
+              className="justify-start"
+              onClick={close}
+            >
               <Link href={l.href}>{l.label}</Link>
             </Button>
           ))}
           {user === null && (
-            <Button asChild variant="ghost" className="justify-start" onClick={close}>
+            <Button
+              asChild
+              variant="ghost"
+              className="justify-start"
+              onClick={close}
+            >
               <Link href="/login">
                 <LogInIcon data-icon="inline-start" />
                 Sign in or register
@@ -628,7 +727,12 @@ function MobileCategoryTree({
       {nodes.map((node) =>
         node.children.length === 0 ? (
           <li key={node.id}>
-            <Button asChild variant="ghost" className="w-full justify-start font-normal" onClick={onNavigate}>
+            <Button
+              asChild
+              variant="ghost"
+              className="w-full justify-start font-normal"
+              onClick={onNavigate}
+            >
               <Link href={categoryHref(node.id)}>{node.name}</Link>
             </Button>
           </li>
@@ -636,7 +740,12 @@ function MobileCategoryTree({
           <li key={node.id}>
             <Collapsible>
               <div className="flex items-center">
-                <Button asChild variant="ghost" className="flex-1 justify-start font-normal" onClick={onNavigate}>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="flex-1 justify-start font-normal"
+                  onClick={onNavigate}
+                >
                   <Link href={categoryHref(node.id)}>{node.name}</Link>
                 </Button>
                 <CollapsibleTrigger asChild>
@@ -651,7 +760,11 @@ function MobileCategoryTree({
                 </CollapsibleTrigger>
               </div>
               <CollapsibleContent>
-                <MobileCategoryTree nodes={node.children} onNavigate={onNavigate} depth={depth + 1} />
+                <MobileCategoryTree
+                  nodes={node.children}
+                  onNavigate={onNavigate}
+                  depth={depth + 1}
+                />
               </CollapsibleContent>
             </Collapsible>
           </li>

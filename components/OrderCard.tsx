@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChannelBadge, StatusBadge } from "@/components/common";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -38,7 +40,12 @@ export function OrderCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          Order #{order.id}
+          <Link
+            href={`/orders/${order.id}`}
+            className="hover:underline hover:text-primary transition-colors"
+          >
+            Order #{order.id}
+          </Link>
           <ChannelBadge channel={order.channel} />
           <StatusBadge status={order.status} />
         </CardTitle>
@@ -113,8 +120,8 @@ export function OrderCard({
           <div className="space-y-0.5 rounded-lg bg-muted/60 p-3 text-sm">
             <p>
               Receipt{" "}
-              <span className="font-mono">{order.receipt.receiptNumber}</span>{" "}
-              · {order.receipt.paymentMethod}
+              <span className="font-mono">{order.receipt.receiptNumber}</span> ·{" "}
+              {order.receipt.paymentMethod}
             </p>
             <p className="text-muted-foreground">
               Cash received {money(order.receipt.cashReceived)} · Change{" "}
@@ -129,9 +136,14 @@ export function OrderCard({
         )}
       </CardContent>
 
-      {actions && (
-        <CardFooter className="no-print flex-wrap gap-2">{actions}</CardFooter>
-      )}
+      <CardFooter className="no-print flex-wrap items-center justify-between gap-2 border-t bg-muted/10 py-3">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/orders/${order.id}`}>Track order</Link>
+        </Button>
+        {actions && (
+          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        )}
+      </CardFooter>
     </Card>
   );
 }
