@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MinusIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -68,17 +74,64 @@ export function ProductCard({
           <span className="font-heading text-base font-semibold tabular-nums">
             {money(product.price)}
           </span>
-          <Button
-            type="button"
-            size="sm"
-            variant={inCart > 0 ? "secondary" : "default"}
-            disabled={!canAdd}
-            onClick={add}
-            aria-label={`Add ${product.name} to cart`}
-          >
-            <PlusIcon data-icon="inline-start" />
-            {inCart > 0 ? `${inCart} in cart` : "Add"}
-          </Button>
+          {inCart > 0 ? (
+            <div className="inline-flex items-center rounded-lg border bg-muted/50 p-0.5 shadow-xs">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="size-6 rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
+                aria-label={
+                  inCart === 1
+                    ? `Remove ${product.name} from cart`
+                    : `Decrease quantity of ${product.name}`
+                }
+                onClick={() => {
+                  if (inCart === 1) {
+                    cart.remove(product.id);
+                    toast.info(`${product.name} removed from cart`);
+                  } else {
+                    cart.setQuantity(product.id, inCart - 1);
+                  }
+                }}
+              >
+                {inCart === 1 ? (
+                  <Trash2Icon className="size-3 text-destructive" />
+                ) : (
+                  <MinusIcon className="size-3" />
+                )}
+              </Button>
+              <span
+                className="min-w-6 px-1 text-center font-heading text-xs font-semibold tabular-nums text-foreground"
+                aria-label={`${inCart} in cart`}
+              >
+                {inCart}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="size-6 rounded-md text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-30"
+                disabled={!canAdd}
+                aria-label={`Increase quantity of ${product.name}`}
+                onClick={add}
+              >
+                <PlusIcon className="size-3" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              disabled={!canAdd}
+              onClick={add}
+              aria-label={`Add ${product.name} to cart`}
+            >
+              <PlusIcon data-icon="inline-start" />
+              Add
+            </Button>
+          )}
         </div>
       </div>
     </article>

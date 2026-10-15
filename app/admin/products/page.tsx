@@ -9,6 +9,8 @@ import {
   SearchIcon,
   ClipboardCheckIcon,
   Trash2Icon,
+  EyeIcon,
+  EyeOffIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -71,10 +73,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ProductImageField } from "@/components/ProductImageField";
+import { ProductCard } from "@/components/storefront/product-card";
 import { api, toApiError, type ApiError } from "@/lib/api-client";
 import { useSettings } from "@/lib/settings";
 import type { CategoryNode, Product, ProductInput } from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
+import { cn } from "@/lib/utils";
 
 type Editing =
   | { mode: "create" }
@@ -287,7 +292,7 @@ export default function ProductsAdminPage() {
         open={editing?.mode === "create" || editing?.mode === "edit"}
         onOpenChange={(open) => !open && setEditing(null)}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
           {(editing?.mode === "create" || editing?.mode === "edit") && (
             <ProductForm
               key={editing.mode === "edit" ? editing.product.id : "new"}
@@ -360,8 +365,39 @@ function ProductForm({
   const [categoryId, setCategoryId] = useState<number | null>(
     product?.categoryId ?? null,
   );
+  const [showPreview, setShowPreview] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function findCategory(nodes: CategoryNode[], id: number | null): CategoryNode | null {
+    if (id === null) return null;
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const found = findCategory(node.children, id);
+      if (found) return found;
+    }
+    return null;
+  }
+  const selectedCat = findCategory(tree, categoryId);
+  const parsedPrice = parseFloat(form.price);
+  const parsedStock =
+    form.stockQuantity === ""
+      ? (product?.stockQuantity ?? 10)
+      : Number(form.stockQuantity);
+
+  const previewProduct: Product = {
+    id: product?.id ?? 9999,
+    name: form.name.trim() || "Product Name Preview",
+    description: form.description.trim() || "Product description preview...",
+    price: Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0,
+    imageUrl: form.imageUrl.trim(),
+    stockQuantity: Number.isFinite(parsedStock) && parsedStock >= 0 ? parsedStock : 0,
+    inStock: product ? product.inStock : parsedStock > 0,
+    categoryId,
+    categoryPath: selectedCat
+      ? [{ id: selectedCat.id, name: selectedCat.name }]
+      : [],
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -399,83 +435,120 @@ function ProductForm({
     setForm({ ...form, [key]: value });
   return (
     <form onSubmit={submit} noValidate className="grid gap-4">
-      <DialogHeader>
-        <DialogTitle>
-          {product ? `Edit product #${product.id}` : "New product"}
-        </DialogTitle>
-        <DialogDescription>
-          {product
-            ? "Change details, price or category. Use a stock count or Inventory to change stock."
-            : "Add a product to the catalogue."}
-        </DialogDescription>
-      </DialogHeader>
-      <div>
-        <ErrorBanner error={error && !error.isValidationError ? error : null} />
-        <OtherFieldErrors
-          errors={fe}
-          shown={[
-            "name",
-            "description",
-            "price",
-            "imageUrl",
-            "stockQuantity",
-            "categoryId",
-          ]}
-        />
-        <FieldGroup className="grid gap-4 md:grid-cols-2">
-          <FormField label="Name" error={fe.name}>
-            <TextInput
-              value={form.name}
-              onChange={(e) => set("name")(e.target.value)}
-            />
-          </FormField>
-          <FormField label={`Price (${settings.currency})`} error={fe.price}>
-            <TextInput
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.price}
-              onChange={(e) => set("price")(e.target.value)}
-            />
-          </FormField>
-          <FormField
-            label="Description"
-            error={fe.description}
-            className="md:col-span-2"
-          >
-            <TextArea
-              rows={3}
-              value={form.description}
-              onChange={(e) => set("description")(e.target.value)}
-            />
-          </FormField>
-          <FormField label="Image URL" error={fe.imageUrl}>
-            <TextInput
-              type="url"
-              placeholder="https://…"
-              value={form.imageUrl}
-              onChange={(e) => set("imageUrl")(e.target.value)}
-            />
-          </FormField>
-          <FormField label="Category" error={fe.categoryId}>
-            <CategorySelect
-              tree={tree}
-              value={categoryId}
-              onChange={setCategoryId}
-              emptyLabel="— Uncategorised —"
-            />
-          </FormField>
-          {!product && (
-            <FormField label="Initial stock" error={fe.stockQuantity}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <DialogHeader className="text-left">
+          <DialogTitle>
+            {product ? `Edit product #${product.id}` : "New product"}
+          </DialogTitle>
+          <DialogDescription>
+            {product
+              ? "Change details, price or category. Use a stock count or Inventory to change stock."
+              : "Add a product to the catalogue."}
+          </DialogDescription>
+        </DialogHeader>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowPreview(!showPreview)}
+          className="gap-1.5 self-start text-xs"
+        >
+          {showPreview ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+          {showPreview ? "Hide card preview" : "Card preview"}
+        </Button>
+      </div>
+      <div className={cn("grid gap-6", showPreview && "lg:grid-cols-[1fr_260px]")}>
+        <div className="space-y-4">
+          <ErrorBanner error={error && !error.isValidationError ? error : null} />
+          <OtherFieldErrors
+            errors={fe}
+            shown={[
+              "name",
+              "description",
+              "price",
+              "imageUrl",
+              "stockQuantity",
+              "categoryId",
+            ]}
+          />
+          <FieldGroup className="grid gap-4 md:grid-cols-2">
+            <FormField label="Name" error={fe.name}>
               <TextInput
-                type="number"
-                min="0"
-                value={form.stockQuantity}
-                onChange={(e) => set("stockQuantity")(e.target.value)}
+                value={form.name}
+                onChange={(e) => set("name")(e.target.value)}
               />
             </FormField>
-          )}
-        </FieldGroup>
+            <FormField label={`Price (${settings.currency})`} error={fe.price}>
+              <TextInput
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.price}
+                onChange={(e) => set("price")(e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Description"
+              error={fe.description}
+              className="md:col-span-2"
+            >
+              <TextArea
+                rows={3}
+                value={form.description}
+                onChange={(e) => set("description")(e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Product Image"
+              error={fe.imageUrl}
+              className="md:col-span-2"
+            >
+              <ProductImageField
+                value={form.imageUrl}
+                onChange={(url) => set("imageUrl")(url)}
+                error={fe.imageUrl}
+              />
+            </FormField>
+            <FormField label="Category" error={fe.categoryId}>
+              <CategorySelect
+                tree={tree}
+                value={categoryId}
+                onChange={setCategoryId}
+                emptyLabel="— Uncategorised —"
+              />
+            </FormField>
+            {!product && (
+              <FormField label="Initial stock" error={fe.stockQuantity}>
+                <TextInput
+                  type="number"
+                  min="0"
+                  value={form.stockQuantity}
+                  onChange={(e) => set("stockQuantity")(e.target.value)}
+                />
+              </FormField>
+            )}
+          </FieldGroup>
+        </div>
+
+        {showPreview && (
+          <div className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-3 h-fit lg:sticky lg:top-0">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <EyeIcon className="size-3.5 text-primary" />
+                Storefront Card Preview
+              </span>
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-[10px] text-primary">
+                Live
+              </Badge>
+            </div>
+            <div className="mx-auto w-full max-w-[240px]">
+              <ProductCard product={previewProduct} />
+            </div>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Live preview of how shoppers see this card while surfing the store.
+            </p>
+          </div>
+        )}
       </div>
       <DialogFooter>
         <DialogClose asChild>

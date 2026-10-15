@@ -7,7 +7,6 @@ import {
   CopyIcon,
   PackageCheckIcon,
   PackageSearchIcon,
-  Share2Icon,
   ShoppingBagIcon,
   TruckIcon,
   XCircleIcon,

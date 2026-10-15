@@ -16,7 +16,6 @@ import {
   Loading,
   Notice,
   OtherFieldErrors,
-  PageHeader,
   ProductImage,
   TextArea,
   TextInput,
