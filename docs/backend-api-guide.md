@@ -255,20 +255,48 @@ const numberError = err.fieldErrors["phone.number"] ?? err.fieldErrors["phone"];
 ### 4.1 Product list / search
 
 ```ts
-api.get<Product[]>("/products", { params: { q, categoryId, inStock: true } });
+// lib/products.ts wraps these (lists are sent as `ids=1,2,3`, not axios' `ids[]=`).
+fetchProducts({ q, categoryId, inStock: true, minPrice: 10, maxPrice: 50, sort: "PRICE_ASC", limit: 24 });
 ```
 
-| Param          | Meaning                                                                                     |
-| -------------- | ------------------------------------------------------------------------------------------- |
-| `q`            | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters |
-| `categoryId`   | that category **plus every sub-category below it** (any depth)                              |
-| `inStock=true` | hide sold-out products (`stockQuantity === 0`)                                              |
+| Param                  | Meaning                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `q`                    | case-insensitive "contains" on name **and** description; `%` and `_` are literal characters   |
+| `categoryId`           | that category **plus every sub-category below it** (any depth)                                |
+| `inStock=true`         | hide sold-out products (`stockQuantity === 0`)                                                |
+| `minPrice`, `maxPrice` | inclusive price bounds (≥ 0; `maxPrice < minPrice` → 400 `fieldErrors.maxPrice`)              |
+| `ids=3,1,7`            | only these products (max 100); with the default sort they come back **in the given order**    |
+| `sort`                 | `FEATURED` (default, catalogue order) · `NEWEST` · `PRICE_ASC` · `PRICE_DESC` · `NAME_ASC`; other values → 400 |
+| `limit`                | 1–100 (otherwise 400 `fieldErrors.limit`); omitted = everything                               |
 
-- All optional and combinable. Response is a plain **array** sorted by id (not paged).
+- All optional and combinable. Response is a plain **array** (not paged).
 - Unknown `categoryId` → **404** (e.g. a stale link) — show "category not found" and fall back to all products.
 - Use `product.inStock` to disable "Add to cart"; use `stockQuantity` to cap the quantity selector and to show
   "Only 3 left". Stock can change at any time — the order call is the real check (see §5.4).
-- Keep filters in the URL (`/?q=mug&category=12`) so results are shareable and back-button friendly.
+- Keep filters in the URL (`/search?q=mug&category=12&minPrice=5&sort=PRICE_ASC`) so results are shareable and back-button friendly.
+
+Search-page helpers (all public, same `q` / `categoryId` / `inStock` meaning as above):
+
+| Call                                                          | Returns                                                                                                   |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `GET /products/price-range?q=&categoryId=&inStock=`            | `{ min, max }` of the matches (both `null` when nothing matches) — bounds for a price slider              |
+| `GET /products/similar?q=&categoryId=&inStock=&limit=8`        | products **not** in the results, from the matches' own/sibling categories, categories named like a search word, or matching single words; random order, in-stock first; `[]` when nothing relates |
+| `GET /products/random?limit=8&inStock=&exclude=1,2,3`          | random products, never the `exclude` ids (max 200)                                                        |
+
+### 4.1b Storefront layouts (designer)
+
+```ts
+api.get<PageLayoutResponse>("/layouts/home");   // public: { page, sections: [...] | null, updatedAt }
+api.put("/layouts/home", { sections });          // ADMIN: publish
+api.delete("/layouts/home");                     // ADMIN: back to the built-in default (204)
+```
+
+- Pages: `home`, `search` (anything else → 404). `sections: null` = not customised → use `defaultSections(page)`.
+- The section model, defaults and normaliser live in `lib/page-layout.ts`; always run stored JSON through
+  `normalizeSections` before rendering.
+- The backend checks only the envelope: ≤ 40 sections, unique `id` (`[A-Za-z0-9_-]{1,64}`), a `type` allowed on the
+  page, strings ≤ 2000 chars, ≤ 100 000 chars of JSON, and every `href` / `*Href` / `*Url` value must be `""`, a site
+  path (`/…`, not `//…`) or an `http(s)://` URL → otherwise 400 with keys like `sections[2].ctaHref`.
 
 ### 4.2 Category navigation
 
@@ -539,6 +567,7 @@ api.put<StoreSettings>("/settings", { currency: "BDT" }); // ADMIN only; case-in
 | Users                                           |     –      |    –     |    –    |  ✅   |
 | Shop settings (currency) — read                 |     ✅     |    ✅    |   ✅    |  ✅   |
 | Shop settings (currency) — change               |     –      |    –     |    –    |  ✅   |
+| Storefront layouts — read / publish & reset     |  ✅ / –    | ✅ / –   | ✅ / –  | ✅ / ✅ |
 
 \* Allowed but pointless for signed-in users — use the account checkout for customers and the POS for staff.
 

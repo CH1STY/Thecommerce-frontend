@@ -46,3 +46,15 @@ export function safeNext(value: string | null | undefined, fallback = "/") {
     ? value
     : fallback;
 }
+
+/**
+ * Links and images set in the storefront designer: a site path (`/search?q=…`) or an absolute http(s) URL.
+ * Anything else (`javascript:`, `//host`, …) gives `undefined`. Mirrors the backend's check.
+ */
+export function safeLink(value: string | null | undefined) {
+  const text = value?.trim();
+  if (!text) return undefined;
+  if (/\s/.test(text) || text.includes("\\")) return undefined;
+  if (text.startsWith("/") && !text.startsWith("//")) return text;
+  return /^https?:\/\/[^\s<>"]+$/i.test(text) ? text : undefined;
+}

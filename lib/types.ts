@@ -65,6 +65,39 @@ export interface Product {
   categoryPath: CategoryRef[];
 }
 
+export type ProductSort =
+  | "FEATURED"
+  | "NEWEST"
+  | "PRICE_ASC"
+  | "PRICE_DESC"
+  | "NAME_ASC";
+
+/** Query of `GET /api/products` (all optional). */
+export interface ProductQuery {
+  q?: string;
+  categoryId?: number;
+  inStock?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+  ids?: number[];
+  sort?: ProductSort;
+  limit?: number;
+}
+
+export interface PriceRange {
+  min: number | null;
+  max: number | null;
+}
+
+export type LayoutPage = "home" | "search";
+
+export interface PageLayoutResponse {
+  page: LayoutPage;
+  /** null = the page uses the built-in default layout. */
+  sections: unknown[] | null;
+  updatedAt: string | null;
+}
+
 export interface ProductInput {
   name: string;
   description: string;

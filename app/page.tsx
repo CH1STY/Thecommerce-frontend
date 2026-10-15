@@ -1,11 +1,5 @@
-import { Suspense } from "react";
-import { Loading } from "@/components/common";
-import { Storefront } from "./storefront";
+import { HomePage } from "./home-page";
 
 export default function Home() {
-  return (
-    <Suspense fallback={<Loading label="Loading products…" />}>
-      <Storefront />
-    </Suspense>
-  );
+  return <HomePage />;
 }

@@ -5,6 +5,7 @@ import {
   FolderTreeIcon,
   LayoutDashboardIcon,
   PackageIcon,
+  PaletteIcon,
   ReceiptIcon,
   SettingsIcon,
   ShoppingBasketIcon,
@@ -71,6 +72,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Users",
     description: "Staff and customer accounts.",
     icon: UsersIcon,
+    adminOnly: true,
+  },
+  {
+    href: "/admin/storefront",
+    label: "Storefront",
+    description: "Design the home page and search results with drag and drop.",
+    icon: PaletteIcon,
     adminOnly: true,
   },
   {
