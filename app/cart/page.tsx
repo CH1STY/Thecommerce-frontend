@@ -100,7 +100,8 @@ export default function CartPage() {
       : allowedChannels[0];
   const otp = useOtp();
   const needsOtp = guest || settings.otp.orderRequired;
-  const emailRequired = guest && settings.otp.mode === "EMAIL";
+  // The code goes to this email whenever the email channel is used (email-only mode, or the guest picked Email).
+  const emailRequired = guest && channel === "EMAIL";
 
   async function sendCode() {
     setError(null);
@@ -354,9 +355,10 @@ export default function CartPage() {
               <FieldGroup>
                 {guest && (
                   <Notice className="mb-0">
-                    Checking out as a guest. Name, phone and address are
-                    required, and we&apos;ll send you a one-time code to
-                    confirm the order.
+                    Checking out as a guest. Name, phone
+                    {emailRequired ? ", email" : ""} and address are required,
+                    and we&apos;ll send you a one-time code to confirm the
+                    order.
                   </Notice>
                 )}
                 {error && error.status !== 409 && (
@@ -410,14 +412,30 @@ export default function CartPage() {
                 )}
                 {guest && (
                   <FormField
-                    label={emailRequired ? "Email" : "Email (optional)"}
+                    label={
+                      emailRequired ? (
+                        <>
+                          Email
+                          <span className="ml-0.5 text-destructive" aria-hidden="true">
+                            *
+                          </span>
+                        </>
+                      ) : (
+                        "Email (optional)"
+                      )
+                    }
                     error={fe.email}
-                    hint="If you create an account with this email later, the order shows up in it."
+                    hint={
+                      emailRequired
+                        ? "We'll send the confirmation code here. If you create an account with this email later, the order shows up in it."
+                        : "If you create an account with this email later, the order shows up in it."
+                    }
                   >
                     <TextInput
                       type="email"
                       autoComplete="email"
                       placeholder="you@example.com"
+                      required={emailRequired}
                       value={guestEmail}
                       disabled={otp.challenge !== null}
                       onChange={(e) => setGuestEmail(e.target.value)}
