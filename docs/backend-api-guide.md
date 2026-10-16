@@ -595,7 +595,8 @@ api.post("/auth/me/verify", otp);                              // → { user, cl
   through a **verified** phone or email (immediately if the account already verified it, otherwise when it gets
   verified: sign-up, login code, order code, password reset or "Verify" on the account page). A verified phone is
   taken from an account that only typed the same number. Changing the phone in the profile makes it unverified.
-- No SMTP / SMS provider configured → the backend writes codes to its log (`docker logs thecommerce-backend`).
+- Without SMTP settings, emails go to the bundled Mailpit test inbox: open <http://localhost:4446> to read OTP emails.
+  If SMTP is unreachable, or for SMS (no gateway yet), the backend writes the code to its log (`docker logs thecommerce-backend`).
 
 ---
 

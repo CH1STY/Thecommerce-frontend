@@ -290,8 +290,9 @@ function OtpSettingsForm() {
               </Notice>
             )}
             <Notice className="mb-0">
-              Email codes need the SMTP settings (<code>SPRING_MAIL_*</code>) on the backend; without
-              them, codes are written to the backend log.
+              Real email needs the SMTP settings (<code>SPRING_MAIL_*</code>) on the backend. Until they
+              are set, emails are caught by the Mailpit test inbox on the server (port 4446) and don&apos;t
+              reach customers.
             </Notice>
             <Button type="submit" disabled={busy || !changed} className="self-start">
               {busy && <Spinner data-icon="inline-start" />}
