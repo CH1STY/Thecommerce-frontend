@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ErrorBanner, FormField, TextInput } from "@/components/common";
-import { OTP_CHANNEL_LABEL, OtpCodeField, otpError } from "@/components/OtpField";
+import {
+  OTP_CHANNEL_LABEL,
+  OtpCodeField,
+  otpError,
+  useSecondsUntil,
+} from "@/components/OtpField";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +46,9 @@ export function LoginForm() {
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
   const [channels, setChannels] = useState<OtpChannel[]>([]);
   const [code, setCode] = useState("");
+  // The backend allows one code per account every few seconds, whichever channel it goes to.
+  const wait = useSecondsUntil(challenge?.resendAvailableAt);
+  const canResend = wait !== null && wait <= 0;
 
   function signedIn(user: User) {
     setUser(user);
@@ -137,10 +145,11 @@ export function LoginForm() {
                       key={channel}
                       type="button"
                       variant="outline"
-                      disabled={busy}
+                      disabled={busy || !canResend}
                       onClick={() => login(channel)}
                     >
                       Send the code by {OTP_CHANNEL_LABEL[channel]} instead
+                      {!canResend && wait ? ` (in ${wait}s)` : ""}
                     </Button>
                   ))}
                 <Button

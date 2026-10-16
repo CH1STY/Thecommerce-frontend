@@ -46,6 +46,7 @@ const RESPONSE_HEADERS_TO_RETURN = [
   "content-type",
   "etag",
   "last-modified",
+  "retry-after",
   "x-request-id",
 ];
 
@@ -87,6 +88,24 @@ function setSessionCookie(request: NextRequest, response: NextResponse, token: s
 
 function clearSessionCookie(response: NextResponse) {
   response.cookies.set({ name: SESSION_COOKIE, value: "", httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+}
+
+const IP_LITERAL = /^[0-9A-Fa-f:.]{2,45}$/;
+
+/**
+ * The shopper's IP for the backend's per-IP OTP limit. Next.js sets `x-forwarded-for` to the socket address only when
+ * the header is missing, and reverse proxies append the address they saw. With `TRUSTED_PROXY_HOPS` reverse proxies
+ * in front of this server, the entry that many places from the right is the one no client can fake.
+ */
+function clientIp(request: NextRequest) {
+  const chain = (request.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (chain.length === 0) return null;
+  const hops = Math.max(1, Number.parseInt(process.env.TRUSTED_PROXY_HOPS ?? "0", 10) || 0);
+  const candidate = chain[Math.max(0, chain.length - hops)];
+  return IP_LITERAL.test(candidate) ? candidate : null;
 }
 
 async function forward(request: NextRequest, ctx: RouteContext<"/api/[...slug]">) {
@@ -133,6 +152,9 @@ async function forward(request: NextRequest, ctx: RouteContext<"/api/[...slug]">
   if (sessionToken) headers.set("authorization", `Bearer ${sessionToken}`);
   headers.set("x-forwarded-host", request.headers.get("host") ?? "");
   headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
+  // The backend believes this only from the BFF's network (OTP rate limit per shopper IP).
+  const ip = clientIp(request);
+  if (ip) headers.set("x-client-ip", ip);
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 

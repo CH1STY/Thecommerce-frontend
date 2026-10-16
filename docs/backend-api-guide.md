@@ -586,8 +586,10 @@ api.post("/auth/me/verify", otp);                              // → { user, cl
 
 - Code errors: 400 `fieldErrors["otp.code"]` (wrong — "n tries left", expired, used, sent elsewhere); `fieldErrors.otp`
   when the code is missing. A code is consumed only when the action succeeds (e.g. a stock 409 keeps it usable).
-- 429 (+ `Retry-After`) when codes are requested too often (60 s per destination+purpose, 5 per destination per hour);
-  503 when the email/SMS provider fails. Respect `resendAvailableAt` in the UI.
+- 429 (+ `Retry-After`, body `retryAfterSeconds`) when codes are requested too often: **90 s pause** per email/phone
+  (any purpose) **and** per account (any channel — e.g. login "send by SMS instead"), 5 per email/phone per hour,
+  10 per shopper IP per 10 min (the BFF forwards the IP as `X-Client-IP`); concurrent sends are serialised.
+  503 when the email/SMS provider fails. Respect `resendAvailableAt` in the UI (`useSecondsUntil` in `OtpField.tsx`).
 - Codes live 10 min, 5 wrong tries. `PASSWORD_RESET` answers the same whether or not an account exists.
 - **Verified contacts:** `User.emailVerified` / `phoneVerified`. Guest / walk-in orders are linked to an account only
   through a **verified** phone or email (immediately if the account already verified it, otherwise when it gets
@@ -637,7 +639,8 @@ api.post("/auth/me/verify", otp);                              // → { user, cl
 - Guest orders can't be looked up or cancelled without creating an account with that phone.
 - In-store sales can't be refunded/voided via the API yet.
 - `GET /products` is not paginated (fine for now; may change if the catalogue grows).
-- The public guest checkout has no captcha; OTP sending is rate-limited per destination only (not per IP).
+- The public guest checkout has no captcha; OTP sends are rate-limited per email/phone, per account and per IP
+  (set `TRUSTED_PROXY_HOPS` when a reverse proxy sits in front of the frontend, or every shopper shares one IP limit).
 
 ---
 

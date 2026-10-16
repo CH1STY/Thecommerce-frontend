@@ -9,6 +9,9 @@ services:
       - "4445:3000"
     environment:
       BACKEND_URL: ${BACKEND_URL:-http://thecommerce-backend:8080}
+      # Reverse proxies (nginx, Traefik, …) in front of this container; used to find the shopper's real IP
+      # for the backend's per-IP OTP limit. 0 = browsers connect to this container directly.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
     networks:
       - thecommerce
     restart: unless-stopped

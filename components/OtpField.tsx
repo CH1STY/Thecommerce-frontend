@@ -106,7 +106,7 @@ export function OtpChannelPicker({
 }
 
 /** Seconds until [isoTime], ticking every second (0 once passed). Never reads the clock during render. */
-function useSecondsUntil(isoTime: string | undefined) {
+export function useSecondsUntil(isoTime: string | undefined) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     if (!isoTime) return;
