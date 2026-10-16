@@ -62,6 +62,7 @@ export interface Product {
   description: string;
   price: number;
   imageUrl: string;
+  images?: string[];
   stockQuantity: number;
   inStock: boolean;
   categoryId: number | null;
@@ -108,6 +109,7 @@ export interface ProductInput {
   description: string;
   price: number | null;
   imageUrl: string;
+  images?: string[];
   stockQuantity?: number;
   categoryId?: number | null;
 }

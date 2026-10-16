@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
@@ -39,6 +40,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -54,6 +62,11 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiError } from "@/lib/api-client";
@@ -286,20 +299,160 @@ export function Select({
   );
 }
 
+export interface SearchSelectOption {
+  value: string;
+  label: string;
+  /** Muted text shown after the label (e.g. stock level). */
+  hint?: string;
+}
+
+const OPTION_KEY = "opt:";
+
+// Every search word must appear in the label (case-insensitive) — more predictable than fuzzy scoring for names.
+function matchesSearch(_value: string, search: string, keywords?: string[]) {
+  const haystack = (keywords ?? []).join(" ").toLowerCase();
+  const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every((w) => haystack.includes(w)) ? 1 : 0;
+}
+
+/** A dropdown with a search box, for lists too long to scroll (`value` "" = nothing chosen). */
+export function SearchSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "Choose…",
+  emptyOption,
+  searchPlaceholder = "Search…",
+  noResults = "No matches.",
+  invalid,
+  id,
+  disabled,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: SearchSelectOption[];
+  placeholder?: string;
+  /** Label of a selectable "" entry at the top (e.g. "All products"); omit to only allow real options. */
+  emptyOption?: string;
+  searchPlaceholder?: string;
+  noResults?: string;
+  invalid?: boolean;
+  id?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const control = useFieldControl(id, invalid);
+  const selected = options.find((o) => o.value === value);
+  const items =
+    emptyOption === undefined
+      ? options
+      : [{ value: "", label: emptyOption }, ...options];
+
+  function choose(next: string) {
+    setOpen(false);
+    if (next !== value) onChange(next);
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setSearch("");
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          {...control}
+          className={cn(
+            "relative flex h-8 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-transparent py-1 pr-8 pl-2.5 text-left text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+            className,
+          )}
+        >
+          {selected ? (
+            <>
+              <span className="truncate">{selected.label}</span>
+              {selected.hint && (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {selected.hint}
+                </span>
+              )}
+            </>
+          ) : (
+            <span
+              className={cn(
+                "truncate",
+                emptyOption === undefined && "text-muted-foreground",
+              )}
+            >
+              {emptyOption ?? placeholder}
+            </span>
+          )}
+          <ChevronDownIcon
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-(--radix-popover-trigger-width) min-w-64 p-0"
+      >
+        <Command filter={matchesSearch} defaultValue={OPTION_KEY + value}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>{noResults}</CommandEmpty>
+            {items.map((o) => (
+              <CommandItem
+                key={o.value}
+                value={OPTION_KEY + o.value}
+                keywords={[o.label]}
+                data-checked={o.value === value}
+                onSelect={() => choose(o.value)}
+              >
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                {o.hint && (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {o.hint}
+                  </span>
+                )}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function Pager({
   page,
   totalPages,
   onPage,
+  className,
 }: {
   page: number;
   totalPages: number;
   onPage: (page: number) => void;
+  className?: string;
 }) {
   if (totalPages <= 1) return null;
   return (
     <nav
       aria-label="Pagination"
-      className="mt-4 flex items-center justify-center gap-3 text-sm"
+      className={cn(
+        "mt-4 flex items-center justify-center gap-3 text-sm",
+        className,
+      )}
     >
       <Button
         type="button"

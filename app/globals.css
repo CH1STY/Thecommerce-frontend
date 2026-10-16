@@ -3,6 +3,12 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Pages rendered inside the admin shell (it sets data-admin-shell) use the whole screen width. */
+@custom-variant admin {
+  body:has([data-admin-shell]) & {
+    @slot;
+  }
+}
 
 @theme inline {
   --color-background: var(--background);

@@ -7,6 +7,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -47,7 +48,11 @@ export function ProductCard({
         className,
       )}
     >
-      <div className="relative aspect-square overflow-hidden bg-muted">
+      <Link
+        href={`/products/${product.id}`}
+        className="relative aspect-square overflow-hidden bg-muted block focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`View details for ${product.name}`}
+      >
         <ProductImage
           src={product.imageUrl}
           alt={product.name}
@@ -64,12 +69,24 @@ export function ProductCard({
             </Badge>
           )
         )}
-      </div>
+      </Link>
       <div className="flex flex-1 flex-col gap-1 p-3">
         {category && (
-          <p className="truncate text-xs text-muted-foreground">{category.name}</p>
+          <Link
+            href={`/search?categoryId=${category.id}`}
+            className="truncate text-xs text-muted-foreground hover:underline"
+          >
+            {category.name}
+          </Link>
         )}
-        <h3 className="line-clamp-2 text-sm leading-snug font-medium">{product.name}</h3>
+        <h3 className="line-clamp-2 text-sm leading-snug font-medium">
+          <Link
+            href={`/products/${product.id}`}
+            className="transition-colors hover:text-brand"
+          >
+            {product.name}
+          </Link>
+        </h3>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
           <span className="font-heading text-base font-semibold tabular-nums">
             {money(product.price)}

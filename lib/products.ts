@@ -5,6 +5,10 @@ import type { Page, PriceRange, Product, ProductQuery } from "@/lib/types";
 const list = (values: number[] | undefined) =>
   values && values.length > 0 ? values.join(",") : undefined;
 
+export function fetchProduct(id: number) {
+  return api.get<Product>(`/products/${id}`);
+}
+
 export function fetchProducts(query: ProductQuery = {}) {
   return api.get<Product[]>("/products", {
     params: {

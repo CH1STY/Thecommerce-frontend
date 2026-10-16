@@ -81,7 +81,7 @@ export function SiteHeader() {
   const { user } = useSession();
   return (
     <header className="no-print sticky top-0 z-40 border-b bg-background">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-4 admin:max-w-none lg:admin:px-6">
         <MobileMenu />
         <Logo />
         <div className="mx-2 hidden flex-1 md:block lg:mx-6">
@@ -101,7 +101,7 @@ export function SiteHeader() {
         </Suspense>
       </div>
       <div className="hidden border-t lg:block">
-        <div className="mx-auto flex h-11 max-w-7xl items-center gap-2 px-4">
+        <div className="mx-auto flex h-11 max-w-7xl items-center gap-2 px-4 admin:max-w-none lg:admin:px-6">
           <CategoryBar />
           <nav
             aria-label="Quick links"

@@ -181,7 +181,7 @@ export default function PointOfSalePage() {
         title="Point of sale"
         description="Record a walk-in cash sale. Only products in stock are listed."
       />
-      <div className="grid items-start gap-6 xl:grid-cols-[1fr_400px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_440px]">
         <Card>
           <CardHeader>
             <form
@@ -218,11 +218,11 @@ export default function PointOfSalePage() {
                 ))}
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
                 {products.data?.map((p) => (
                   <li
                     key={p.id}
-                    className="flex items-center justify-between gap-3 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{p.name}</p>
@@ -242,7 +242,7 @@ export default function PointOfSalePage() {
                   </li>
                 ))}
                 {products.data?.length === 0 && (
-                  <li className="py-6 text-center text-sm text-muted-foreground">
+                  <li className="col-span-full py-6 text-center text-sm text-muted-foreground">
                     No products in stock match.
                   </li>
                 )}
@@ -251,7 +251,7 @@ export default function PointOfSalePage() {
           </CardContent>
         </Card>
 
-        <Card className="xl:sticky xl:top-20">
+        <Card className="xl:sticky xl:top-[7.25rem]">
           <CardHeader>
             <CardTitle className="font-heading text-lg font-semibold">
               Sale

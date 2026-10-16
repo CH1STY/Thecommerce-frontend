@@ -22,7 +22,7 @@ export function AdminHome() {
         title="Staff dashboard"
         description={`Signed in as ${user?.fullName ?? "staff"}. Prices are shown in ${settings.currency}.`}
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {ADMIN_SECTIONS.filter(
           (s) => s.href !== "/admin" && (!s.adminOnly || user?.role === "ADMIN"),
         ).map(({ href, label, description, icon: Icon }) => (

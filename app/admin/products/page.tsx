@@ -8,9 +8,11 @@ import {
   PlusIcon,
   SearchIcon,
   ClipboardCheckIcon,
+  ExternalLinkIcon,
   Trash2Icon,
   EyeIcon,
   EyeOffIcon,
+  XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -25,6 +27,8 @@ import {
   OtherFieldErrors,
   PageHeader,
   ProductImage,
+  Select,
+  Pager,
   TextArea,
   TextInput,
 } from "@/components/common";
@@ -73,11 +77,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ProductGalleryField } from "@/components/ProductGalleryField";
 import { ProductImageField } from "@/components/ProductImageField";
 import { ProductCard } from "@/components/storefront/product-card";
 import { api, toApiError, type ApiError } from "@/lib/api-client";
+import { fetchProductsPaged } from "@/lib/products";
 import { useSettings } from "@/lib/settings";
-import type { CategoryNode, Product, ProductInput } from "@/lib/types";
+import type { CategoryNode, Product, ProductInput, ProductSort } from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
 import { cn } from "@/lib/utils";
 
@@ -102,26 +108,58 @@ function StockBadge({ quantity }: { quantity: number }) {
   );
 }
 
+const SORT_OPTIONS: { value: ProductSort; label: string }[] = [
+  { value: "FEATURED", label: "Catalogue order" },
+  { value: "NEWEST", label: "Newest first" },
+  { value: "NAME_ASC", label: "Name A–Z" },
+  { value: "PRICE_ASC", label: "Price: low to high" },
+  { value: "PRICE_DESC", label: "Price: high to low" },
+];
+const PAGE_SIZES = [25, 50, 100];
+
 export default function ProductsAdminPage() {
   const { money } = useSettings();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [inStock, setInStock] = useState(false);
+  const [sort, setSort] = useState<ProductSort>("FEATURED");
+  const [size, setSize] = useState(PAGE_SIZES[0]);
+  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Editing>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [actionError, setActionError] = useState<ApiError | null>(null);
   const categories = useCategoryTree();
-  const products = useLoad(`admin-products-${query}`, () =>
-    api.get<Product[]>("/products", { params: { q: query || undefined } }),
+  const products = useLoad(
+    `admin-products-${query}-${categoryId}-${inStock}-${sort}-${size}-${page}`,
+    () =>
+      fetchProductsPaged({
+        q: query,
+        categoryId: categoryId ?? undefined,
+        inStock,
+        sort,
+        page,
+        size,
+      }),
   );
+  const filtered = query !== "" || categoryId !== null || inStock;
 
   function saved(product: Product) {
     const created = editing?.mode === "create";
     setEditing(null);
-    products.setData((list) =>
-      list.some((p) => p.id === product.id)
-        ? list.map((p) => (p.id === product.id ? product : p))
-        : [...list, product],
-    );
+    if (
+      !created &&
+      products.data?.content.some((p) => p.id === product.id)
+    ) {
+      products.setData((current) => ({
+        ...current,
+        content: current.content.map((p) =>
+          p.id === product.id ? product : p,
+        ),
+      }));
+    } else {
+      products.reload();
+    }
     toast.success(
       created ? `“${product.name}” created.` : `“${product.name}” saved.`,
     );
@@ -131,20 +169,32 @@ export default function ProductsAdminPage() {
     setActionError(null);
     try {
       await api.delete(`/products/${product.id}`);
-      products.setData((list) => list.filter((p) => p.id !== product.id));
+      products.reload();
       toast.success(`“${product.name}” deleted.`);
     } catch (e) {
       setActionError(toApiError(e));
     }
   }
 
+  function resetFilters() {
+    setSearch("");
+    setQuery("");
+    setCategoryId(null);
+    setInStock(false);
+    setPage(0);
+  }
+
+  const data = products.data;
+  const first = data && data.totalElements > 0 ? data.page * data.size + 1 : 0;
+  const last = data ? data.page * data.size + data.content.length : 0;
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Products"
         description={
-          products.data
-            ? `${products.data.length} product${products.data.length === 1 ? "" : "s"}`
+          data
+            ? `${data.totalElements} product${data.totalElements === 1 ? "" : "s"}${filtered ? " match" : ""}`
             : "Your catalogue."
         }
         actions={
@@ -155,53 +205,101 @@ export default function ProductsAdminPage() {
         }
       />
 
-      <form
-        role="search"
-        className="max-w-md"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setQuery(search.trim());
-        }}
-      >
-        <InputGroup className="bg-background">
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
-            aria-label="Search products"
+      <div className="flex flex-wrap items-end gap-3">
+        <form
+          role="search"
+          className="w-full sm:w-80 xl:w-96"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setQuery(search.trim());
+            setPage(0);
+          }}
+        >
+          <InputGroup className="bg-background">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products…"
+              aria-label="Search products"
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton type="submit" variant="secondary">
+                Search
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </form>
+        <FormField label="Category" className="w-full sm:w-60">
+          <CategorySelect
+            tree={categories.data ?? []}
+            value={categoryId}
+            emptyLabel="All categories"
+            onChange={(id) => {
+              setCategoryId(id);
+              setPage(0);
+            }}
           />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton type="submit" variant="secondary">
-              Search
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
-      </form>
+        </FormField>
+        <FormField label="Stock" className="w-full sm:w-40">
+          <Select
+            value={inStock ? "in" : ""}
+            onChange={(e) => {
+              setInStock(e.target.value === "in");
+              setPage(0);
+            }}
+          >
+            <option value="">All</option>
+            <option value="in">In stock only</option>
+          </Select>
+        </FormField>
+        <FormField label="Sort" className="w-full sm:w-48">
+          <Select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value as ProductSort);
+              setPage(0);
+            }}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        {filtered && (
+          <Button type="button" variant="ghost" onClick={resetFilters}>
+            <XIcon data-icon="inline-start" />
+            Clear filters
+          </Button>
+        )}
+      </div>
 
       <ErrorBanner
         error={actionError ?? products.error}
         onDismiss={() => setActionError(null)}
       />
-      {products.loading && !products.data ? (
+      {products.loading && !data ? (
         <Loading />
-      ) : products.data?.length === 0 ? (
+      ) : data?.content.length === 0 ? (
         <EmptyState
           icon={PackageIcon}
           title="No products found"
           description={
-            query ? "Try another search." : "Create your first product."
+            filtered ? "Try another search or filter." : "Create your first product."
           }
         />
       ) : (
-        <Card className="py-0">
+        <Card className="gap-0 py-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Product</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead className="hidden w-20 pl-4 xl:table-cell">ID</TableHead>
+                <TableHead className="pl-4 xl:pl-2">Product</TableHead>
+                <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="w-12 pr-4">
@@ -209,10 +307,13 @@ export default function ProductsAdminPage() {
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {products.data?.map((product) => (
+            <TableBody className={cn(products.loading && "opacity-60")}>
+              {data?.content.map((product) => (
                 <TableRow key={product.id}>
-                  <TableCell className="pl-4">
+                  <TableCell className="hidden pl-4 font-mono text-xs text-muted-foreground xl:table-cell">
+                    #{product.id}
+                  </TableCell>
+                  <TableCell className="min-w-64 pl-4 whitespace-normal xl:pl-2">
                     <div className="flex items-center gap-3">
                       <ProductImage
                         src={product.imageUrl}
@@ -220,19 +321,33 @@ export default function ProductsAdminPage() {
                         className="size-10 shrink-0 rounded-md"
                       />
                       <div className="min-w-0">
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          #{product.id}
-                        </p>
+                        <button
+                          type="button"
+                          className="line-clamp-2 cursor-pointer text-left font-medium hover:underline"
+                          onClick={() => setEditing({ mode: "edit", product })}
+                        >
+                          {product.name}
+                        </button>
+                        {(product.images?.length ?? 0) > 1 && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="xl:hidden">#{product.id} · </span>
+                            {product.images?.length} images
+                          </p>
+                        )}
+                        {(product.images?.length ?? 0) <= 1 && (
+                          <p className="text-xs text-muted-foreground xl:hidden">
+                            #{product.id}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="hidden min-w-48 whitespace-normal text-muted-foreground md:table-cell">
                     {product.categoryPath.length > 0
                       ? product.categoryPath.map((c) => c.name).join(" › ")
                       : "—"}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right font-medium tabular-nums">
                     {money(product.price)}
                   </TableCell>
                   <TableCell className="text-right">
@@ -270,6 +385,12 @@ export default function ProductsAdminPage() {
                             Stock history
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/products/${product.id}`} target="_blank">
+                            <ExternalLinkIcon />
+                            View in shop
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
@@ -285,6 +406,38 @@ export default function ProductsAdminPage() {
               ))}
             </TableBody>
           </Table>
+          {data && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
+              <span className="text-muted-foreground tabular-nums">
+                Showing {first}–{last} of {data.totalElements}
+              </span>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  Rows per page
+                  <Select
+                    className="w-20"
+                    value={String(size)}
+                    onChange={(e) => {
+                      setSize(Number(e.target.value));
+                      setPage(0);
+                    }}
+                  >
+                    {PAGE_SIZES.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <Pager
+                  className="mt-0"
+                  page={data.page}
+                  totalPages={data.totalPages}
+                  onPage={setPage}
+                />
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -362,6 +515,11 @@ function ProductForm({
     imageUrl: product?.imageUrl ?? "",
     stockQuantity: "",
   });
+  const [galleryImages, setGalleryImages] = useState<string[]>(
+    product?.images && product.images.length > 0
+      ? product.images.filter((img) => img !== (product.imageUrl || ""))
+      : [],
+  );
   const [categoryId, setCategoryId] = useState<number | null>(
     product?.categoryId ?? null,
   );
@@ -404,11 +562,15 @@ function ProductForm({
     setBusy(true);
     setError(null);
     // PUT replaces categoryId, so it's always sent; stock is only sent on create (use adjustments/counts afterwards).
+    const finalImages = Array.from(
+      new Set([form.imageUrl.trim(), ...galleryImages.map((s) => s.trim())]),
+    ).filter(Boolean);
     const body: ProductInput = {
       name: form.name,
       description: form.description,
       price: form.price === "" ? null : Number(form.price),
       imageUrl: form.imageUrl,
+      images: finalImages,
       categoryId,
       ...(product
         ? {}
@@ -499,7 +661,7 @@ function ProductForm({
               />
             </FormField>
             <FormField
-              label="Product Image"
+              label="Product Image (Cover / List view)"
               error={fe.imageUrl}
               className="md:col-span-2"
             >
@@ -509,6 +671,13 @@ function ProductForm({
                 error={fe.imageUrl}
               />
             </FormField>
+            <div className="md:col-span-2">
+              <ProductGalleryField
+                images={galleryImages}
+                onChange={setGalleryImages}
+                error={fe.images}
+              />
+            </div>
             <FormField label="Category" error={fe.categoryId}>
               <CategorySelect
                 tree={tree}

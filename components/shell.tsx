@@ -39,18 +39,18 @@ export const Header = SiteHeader;
 
 /** Storefront pages built from full-width sections lay out their own containers. */
 const FULL_WIDTH = ["/", "/search"];
-const WIDE = ["/admin/storefront"];
 
 function MainContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const full = FULL_WIDTH.includes(pathname);
-  const wide = WIDE.includes(pathname);
+  // The staff area always uses the whole screen width (owner's request).
+  const admin = pathname === "/admin" || pathname.startsWith("/admin/");
   return (
     <main
       className={cn(
         "w-full flex-1",
-        !full && "mx-auto px-4 py-8",
-        !full && (wide ? "max-w-[100rem]" : "max-w-6xl"),
+        admin && "px-4 py-6 lg:px-6",
+        !full && !admin && "mx-auto max-w-6xl px-4 py-8",
       )}
     >
       {children}
@@ -101,7 +101,7 @@ export function Footer() {
   ];
   return (
     <footer className="no-print mt-12 border-t bg-muted/40">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4 admin:max-w-none lg:admin:px-6">
         <div className="space-y-3 lg:col-span-2">
           <Link
             href="/"
@@ -140,7 +140,7 @@ export function Footer() {
         ))}
       </div>
       <div className="border-t">
-        <p className="mx-auto max-w-7xl px-4 py-4 text-xs text-muted-foreground">
+        <p className="mx-auto max-w-7xl px-4 py-4 text-xs text-muted-foreground admin:max-w-none lg:admin:px-6">
           TheCommerce
         </p>
       </div>
