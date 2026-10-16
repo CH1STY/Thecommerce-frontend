@@ -26,11 +26,64 @@ export interface User {
   role: Role;
   enabled: boolean;
   createdAt: string | null;
+  /** Proven with a one-time code (or set by an admin). */
+  emailVerified: boolean;
+  phoneVerified: boolean;
 }
 
 export interface SessionResponse {
   user: User;
   expiresAt: string;
+}
+
+/** `POST /auth/login`: signed in, or (login OTP on) a code was sent and `POST /auth/login/otp` finishes it. */
+export type LoginResult =
+  | (SessionResponse & { otpRequired?: false })
+  | { otpRequired: true; otp: OtpChallenge; otpChannels: OtpChannel[] };
+
+/** Where the shop sends one-time codes (admin setting). */
+export type OtpMode = "PHONE" | "EMAIL" | "EMAIL_OR_PHONE";
+export type OtpChannel = "EMAIL" | "PHONE";
+export type OtpPurpose =
+  | "REGISTER"
+  | "LOGIN"
+  | "GUEST_ORDER"
+  | "ORDER"
+  | "PASSWORD_RESET"
+  | "VERIFY_CONTACT";
+
+export interface OtpChallenge {
+  challengeId: string;
+  purpose: OtpPurpose;
+  channel: OtpChannel;
+  /** Masked, e.g. a•••@example.com */
+  destination: string;
+  codeLength: number;
+  expiresAt: string;
+  resendAvailableAt: string;
+}
+
+/** Sent with the action a code protects. */
+export interface OtpProof {
+  challengeId: string;
+  code: string;
+}
+
+export interface OtpSettings {
+  mode: OtpMode;
+  loginRequired: boolean;
+  orderRequired: boolean;
+  /** Always true. */
+  guestOrderRequired: boolean;
+  /** Always true. */
+  registerRequired: boolean;
+}
+
+/** Channels a mode allows, email first. */
+export function otpChannels(mode: OtpMode): OtpChannel[] {
+  if (mode === "EMAIL") return ["EMAIL"];
+  if (mode === "PHONE") return ["PHONE"];
+  return ["EMAIL", "PHONE"];
 }
 
 export interface CategoryRef {
@@ -166,6 +219,8 @@ export interface Order {
   totalAmount: number;
   customerName: string;
   customerPhone: string;
+  /** Lower-case; null for walk-in sales and guests who gave none. */
+  customerEmail?: string | null;
   shippingAddress: string | null;
   customer: { id: number; email: string; fullName: string } | null;
   items: OrderItem[];
@@ -235,6 +290,7 @@ export interface StoreSettings {
   currency: string;
   currencyFractionDigits: number;
   updatedAt: string | null;
+  otp: OtpSettings;
 }
 
 export function isStaff(user: User | null | undefined) {

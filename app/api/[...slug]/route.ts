@@ -9,9 +9,10 @@ import { connection, NextResponse, type NextRequest } from "next/server";
  *
  *   browser ──> https://<frontend>/api/products/1 ──> (BFF) ──> http://thecommerce-backend:8080/api/products/1
  *
- * Auth: `/api/auth/login` and `/api/auth/register` return a JWT from the backend. The BFF moves it into
- * an httpOnly cookie (never visible to browser JS) and attaches it as `Authorization: Bearer` on every
- * later call. `POST /api/auth/logout` is answered here by clearing the cookie.
+ * Auth: `/api/auth/login`, `/api/auth/login/otp` and `/api/auth/register` return a JWT from the backend. The BFF
+ * moves it into an httpOnly cookie (never visible to browser JS) and attaches it as `Authorization: Bearer` on every
+ * later call. When login OTP is on, `/api/auth/login` answers `{ otpRequired, otp, otpChannels }` (no token) and the
+ * token comes from `/api/auth/login/otp`. `POST /api/auth/logout` is answered here by clearing the cookie.
  *
  * Backend responses (including Spring's RFC 9457 `application/problem+json` errors) are passed
  * through unchanged. When the backend can't be reached, the BFF answers with its own problem
@@ -20,7 +21,11 @@ import { connection, NextResponse, type NextRequest } from "next/server";
 
 const UPSTREAM_TIMEOUT_MS = 15_000;
 const SESSION_COOKIE = "tc_session";
-const TOKEN_ISSUING_PATHS = new Set(["auth/login", "auth/register"]);
+const TOKEN_ISSUING_PATHS = new Set([
+  "auth/login",
+  "auth/login/otp",
+  "auth/register",
+]);
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // `authorization` and `cookie` are deliberately not forwarded: the backend only trusts the token the BFF attaches.
@@ -151,13 +156,27 @@ async function forward(request: NextRequest, ctx: RouteContext<"/api/[...slug]">
 
   // Swap the token for the httpOnly cookie so browser JS never sees it.
   if (TOKEN_ISSUING_PATHS.has(path) && request.method === "POST" && upstream.ok) {
-    let session: { accessToken?: unknown; expiresAt?: unknown; user?: unknown };
+    let session: {
+      accessToken?: unknown;
+      expiresAt?: unknown;
+      user?: unknown;
+      otpRequired?: unknown;
+      otp?: unknown;
+      otpChannels?: unknown;
+    };
     try {
       session = await upstream.json();
     } catch {
       session = {};
     }
     if (typeof session.accessToken !== "string") {
+      // Login OTP is on: the password was right and a code was sent; no token until POST /auth/login/otp.
+      if (path === "auth/login" && session.otpRequired === true) {
+        return NextResponse.json(
+          { otpRequired: true, otp: session.otp, otpChannels: session.otpChannels },
+          { status: upstream.status, headers: { "cache-control": "no-store" } },
+        );
+      }
       console.error(`[bff] ${target.pathname} returned no access token`);
       return problem(502, "Bad Gateway", "The backend returned an invalid sign-in response.", instance);
     }

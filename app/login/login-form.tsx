@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ErrorBanner, FormField, TextInput } from "@/components/common";
+import { OTP_CHANNEL_LABEL, OtpCodeField, otpError } from "@/components/OtpField";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +19,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, toApiError, type ApiError } from "@/lib/api-client";
 import { safeNext } from "@/lib/format";
 import { useSession } from "@/lib/session";
-import { isStaff, type SessionResponse } from "@/lib/types";
+import {
+  isStaff,
+  type LoginResult,
+  type OtpChallenge,
+  type OtpChannel,
+  type SessionResponse,
+  type User,
+} from "@/lib/types";
 
 export function LoginForm() {
   const router = useRouter();
@@ -29,18 +37,33 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
+  // Second step (login OTP turned on by the admin).
+  const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
+  const [channels, setChannels] = useState<OtpChannel[]>([]);
+  const [code, setCode] = useState("");
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function signedIn(user: User) {
+    setUser(user);
+    router.push(safeNext(next, isStaff(user) ? "/admin" : "/"));
+  }
+
+  /** Password step; also used to resend or switch the channel of the login code. */
+  async function login(otpChannel?: OtpChannel) {
     setBusy(true);
     setError(null);
     try {
-      const { user } = await api.post<SessionResponse>("/auth/login", {
+      const result = await api.post<LoginResult>("/auth/login", {
         email,
         password,
+        otpChannel,
       });
-      setUser(user);
-      router.push(safeNext(next, isStaff(user) ? "/admin" : "/"));
+      if (result.otpRequired) {
+        setChallenge(result.otp);
+        setChannels(result.otpChannels);
+        setCode("");
+      } else {
+        signedIn(result.user);
+      }
     } catch (e) {
       setError(toApiError(e));
     } finally {
@@ -48,43 +71,125 @@ export function LoginForm() {
     }
   }
 
+  async function verify() {
+    if (!challenge) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { user } = await api.post<SessionResponse>("/auth/login/otp", {
+        challengeId: challenge.challengeId,
+        code: code.trim(),
+      });
+      signedIn(user);
+    } catch (e) {
+      setError(toApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (challenge) void verify();
+    else void login();
+  }
+
+  const fe = error?.fieldErrors ?? {};
+  const forgotHref = next
+    ? `/forgot-password?next=${encodeURIComponent(next)}`
+    : "/forgot-password";
+
   return (
     <Card className="mx-auto w-full max-w-sm">
       <CardHeader>
         <CardTitle className="font-heading text-xl font-semibold">
-          Sign in
+          {challenge ? "Enter your code" : "Sign in"}
         </CardTitle>
         <CardDescription>
-          Welcome back. Enter your email and password.
+          {challenge
+            ? "This shop confirms every sign-in with a one-time code."
+            : "Welcome back. Enter your email and password."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ErrorBanner error={error} />
         <form onSubmit={submit} noValidate>
           <FieldGroup>
-            <FormField label="Email" error={error?.fieldErrors.email}>
-              <TextInput
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Password" error={error?.fieldErrors.password}>
-              <TextInput
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </FormField>
-            <Button type="submit" disabled={busy} className="w-full">
-              {busy && <Spinner data-icon="inline-start" />}
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
+            {challenge ? (
+              <>
+                <OtpCodeField
+                  challenge={challenge}
+                  code={code}
+                  onCodeChange={setCode}
+                  error={otpError(fe)}
+                  onResend={() => login(challenge.channel)}
+                  resending={busy}
+                  onChange={() => {
+                    setChallenge(null);
+                    setError(null);
+                  }}
+                  changeLabel="Use another account"
+                />
+                {channels
+                  .filter((channel) => channel !== challenge.channel)
+                  .map((channel) => (
+                    <Button
+                      key={channel}
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => login(channel)}
+                    >
+                      Send the code by {OTP_CHANNEL_LABEL[channel]} instead
+                    </Button>
+                  ))}
+                <Button
+                  type="submit"
+                  disabled={busy || code.length < challenge.codeLength}
+                  className="w-full"
+                >
+                  {busy && <Spinner data-icon="inline-start" />}
+                  {busy ? "Checking…" : "Verify and sign in"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <FormField label="Email" error={fe.email}>
+                  <TextInput
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="Password"
+                  error={fe.password}
+                  hint={
+                    <Link
+                      href={forgotHref}
+                      className="font-medium text-foreground underline underline-offset-4"
+                    >
+                      Forgot password?
+                    </Link>
+                  }
+                >
+                  <TextInput
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </FormField>
+                <Button type="submit" disabled={busy} className="w-full">
+                  {busy && <Spinner data-icon="inline-start" />}
+                  {busy ? "Signing in…" : "Sign in"}
+                </Button>
+              </>
+            )}
           </FieldGroup>
         </form>
       </CardContent>

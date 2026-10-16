@@ -21,6 +21,13 @@ import {
   TextInput,
 } from "@/components/common";
 import {
+  OTP_ERROR_KEYS,
+  OtpChannelPicker,
+  OtpCodeField,
+  otpError,
+  useOtp,
+} from "@/components/OtpField";
+import {
   EMPTY_PHONE,
   PHONE_ERROR_KEYS,
   PhoneField,
@@ -42,7 +49,13 @@ import { api, toApiError, type ApiError } from "@/lib/api-client";
 import { MAX_CART_QUANTITY, cart, useCart } from "@/lib/cart";
 import { useSession } from "@/lib/session";
 import { useSettings } from "@/lib/settings";
-import { isStaff, type Order, type Product } from "@/lib/types";
+import {
+  isStaff,
+  otpChannels,
+  type Order,
+  type OtpChannel,
+  type Product,
+} from "@/lib/types";
 import { useLoad } from "@/lib/use-load";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +63,7 @@ export default function CartPage() {
   const router = useRouter();
   const lines = useCart();
   const { user } = useSession();
-  const { money } = useSettings();
+  const { money, settings } = useSettings();
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
   const [guest, setGuest] = useState(false);
@@ -77,8 +90,46 @@ export default function CartPage() {
   const addressValue = address ?? user?.shippingAddress ?? "";
   const needsPhone = guest || !user?.phone || changePhone;
 
+  // One-time code: always for guests, for signed-in customers when the admin turned on order OTP.
+  const [guestEmail, setGuestEmail] = useState("");
+  const allowedChannels = otpChannels(settings.otp.mode);
+  const [pickedChannel, setPickedChannel] = useState<OtpChannel | null>(null);
+  const channel =
+    pickedChannel && allowedChannels.includes(pickedChannel)
+      ? pickedChannel
+      : allowedChannels[0];
+  const otp = useOtp();
+  const needsOtp = guest || settings.otp.orderRequired;
+  const emailRequired = guest && settings.otp.mode === "EMAIL";
+
+  async function sendCode() {
+    setError(null);
+    try {
+      await otp.send(
+        guest
+          ? {
+              purpose: "GUEST_ORDER",
+              channel,
+              email: guestEmail.trim() || undefined,
+              phone,
+            }
+          : {
+              purpose: "ORDER",
+              channel,
+              phone: needsPhone ? phone : undefined,
+            },
+      );
+    } catch (e) {
+      setError(toApiError(e));
+    }
+  }
+
   async function placeOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (needsOtp && !otp.challenge) {
+      await sendCode();
+      return;
+    }
     setBusy(true);
     setError(null);
     const items = lines.map((l) => ({
@@ -91,13 +142,16 @@ export default function CartPage() {
             items,
             customerName: nameValue,
             phone,
+            email: guestEmail.trim() || undefined,
             shippingAddress: addressValue,
+            otp: otp.proof,
           })
         : await api.post<Order>("/orders", {
             items,
             customerName: nameValue.trim() || undefined,
             phone: needsPhone ? phone : undefined,
             shippingAddress: addressValue.trim() || undefined,
+            otp: needsOtp ? otp.proof : undefined,
           });
       cart.clear();
       router.push(`/orders/${order.id}`);
@@ -301,7 +355,8 @@ export default function CartPage() {
                 {guest && (
                   <Notice className="mb-0">
                     Checking out as a guest. Name, phone and address are
-                    required.
+                    required, and we&apos;ll send you a one-time code to
+                    confirm the order.
                   </Notice>
                 )}
                 {error && error.status !== 409 && (
@@ -312,7 +367,9 @@ export default function CartPage() {
                       shown={[
                         "customerName",
                         "shippingAddress",
+                        "email",
                         ...PHONE_ERROR_KEYS,
+                        ...OTP_ERROR_KEYS,
                       ]}
                     />
                   </div>
@@ -324,7 +381,7 @@ export default function CartPage() {
                     autoComplete="name"
                   />
                 </FormField>
-                {needsPhone ? (
+                {needsPhone && !otp.challenge ? (
                   <PhoneField
                     value={phone}
                     onChange={setPhone}
@@ -335,17 +392,37 @@ export default function CartPage() {
                   <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
                     <span>
                       <span className="text-muted-foreground">Phone:</span>{" "}
-                      {user?.phone}
+                      {needsPhone
+                        ? `${phone.countryCode} ${phone.number}`
+                        : user?.phone}
                     </span>
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      onClick={() => setChangePhone(true)}
-                    >
-                      Use another
-                    </Button>
+                    {!otp.challenge && (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={() => setChangePhone(true)}
+                      >
+                        Use another
+                      </Button>
+                    )}
                   </div>
+                )}
+                {guest && (
+                  <FormField
+                    label={emailRequired ? "Email" : "Email (optional)"}
+                    error={fe.email}
+                    hint="If you create an account with this email later, the order shows up in it."
+                  >
+                    <TextInput
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={guestEmail}
+                      disabled={otp.challenge !== null}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                    />
+                  </FormField>
                 )}
                 <FormField label="Shipping address" error={fe.shippingAddress}>
                   <TextArea
@@ -356,15 +433,47 @@ export default function CartPage() {
                   />
                 </FormField>
                 <Separator />
-                <Button type="submit" size="lg" disabled={busy}>
-                  {busy && <Spinner data-icon="inline-start" />}
-                  {busy ? "Placing order…" : `Place order · ${money(total)}`}
+                {needsOtp &&
+                  (otp.challenge ? (
+                    <OtpCodeField
+                      challenge={otp.challenge}
+                      code={otp.code}
+                      onCodeChange={otp.setCode}
+                      error={otpError(fe)}
+                      onResend={sendCode}
+                      resending={otp.sending}
+                      onChange={() => {
+                        otp.reset();
+                        setError(null);
+                      }}
+                      changeLabel="Change contact details"
+                    />
+                  ) : (
+                    <OtpChannelPicker
+                      mode={settings.otp.mode}
+                      value={channel}
+                      onChange={setPickedChannel}
+                      label="Confirm the order with a code sent by"
+                    />
+                  ))}
+                <Button type="submit" size="lg" disabled={busy || otp.sending}>
+                  {(busy || otp.sending) && <Spinner data-icon="inline-start" />}
+                  {needsOtp && !otp.challenge
+                    ? otp.sending
+                      ? "Sending code…"
+                      : `Send code by ${channel === "EMAIL" ? "email" : "SMS"}`
+                    : busy
+                      ? "Placing order…"
+                      : `Place order · ${money(total)}`}
                 </Button>
                 {guest && (
                   <Button
                     type="button"
                     variant="link"
-                    onClick={() => setGuest(false)}
+                    onClick={() => {
+                      setGuest(false);
+                      otp.reset();
+                    }}
                   >
                     Sign in instead
                   </Button>

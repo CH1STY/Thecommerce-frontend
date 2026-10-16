@@ -560,6 +560,40 @@ api.put<StoreSettings>("/settings", { currency: "BDT" }); // ADMIN only; case-in
 
 - 400 `fieldErrors.currency` → unknown / pseudo currency (e.g. `XXX`).
 - Changing the currency only changes **display**; stored prices and past orders are not converted.
+- `PUT /settings` is a partial update: send `{ currency }` and/or `{ otp: { mode, loginRequired, orderRequired } }` (see §6.8).
+
+### 6.8 One-time codes (OTP)
+
+The admin picks **where** codes go (`otp.mode`: `PHONE` = SMS, `EMAIL`, `EMAIL_OR_PHONE` = customer chooses) and **when**
+(`otp.loginRequired`, `otp.orderRequired`). Sign-up, guest checkout and "forgot password" **always** need a code.
+Read the rules from `GET /settings` → `otp` (`useSettings().settings.otp`). UI helpers: `components/OtpField.tsx`
+(`useOtp`, `OtpChannelPicker`, `OtpCodeField`, `otpError`).
+
+```ts
+// 1. send a code → OtpChallenge { challengeId, channel, destination (masked), codeLength, expiresAt, resendAvailableAt }
+api.post<OtpChallenge>("/otp/send", { purpose, channel, email?, phone? });
+//    purpose: REGISTER | GUEST_ORDER | PASSWORD_RESET (public) · ORDER | VERIFY_CONTACT (signed in; own email / phone)
+// 2. send the proof with the protected action: otp: { challengeId, code }
+api.post("/auth/register", { ...form, phone, otp });          // code to that email or phone
+api.post("/orders/guest", { ...order, email?, otp });         // email required when mode = EMAIL
+api.post("/orders", { items, ..., otp });                     // only when otp.orderRequired
+api.post("/auth/password-reset", { otp, newPassword });        // 204, then sign in
+api.post("/auth/me/verify", otp);                              // → { user, claimedOrders }
+// Login: POST /auth/login answers either a session or { otpRequired: true, otp, otpChannels };
+// then POST /auth/login/otp { challengeId, code } → session (the BFF sets the cookie). Re-post /auth/login with
+// otpChannel to resend or switch channel.
+```
+
+- Code errors: 400 `fieldErrors["otp.code"]` (wrong — "n tries left", expired, used, sent elsewhere); `fieldErrors.otp`
+  when the code is missing. A code is consumed only when the action succeeds (e.g. a stock 409 keeps it usable).
+- 429 (+ `Retry-After`) when codes are requested too often (60 s per destination+purpose, 5 per destination per hour);
+  503 when the email/SMS provider fails. Respect `resendAvailableAt` in the UI.
+- Codes live 10 min, 5 wrong tries. `PASSWORD_RESET` answers the same whether or not an account exists.
+- **Verified contacts:** `User.emailVerified` / `phoneVerified`. Guest / walk-in orders are linked to an account only
+  through a **verified** phone or email (immediately if the account already verified it, otherwise when it gets
+  verified: sign-up, login code, order code, password reset or "Verify" on the account page). A verified phone is
+  taken from an account that only typed the same number. Changing the phone in the profile makes it unverified.
+- No SMTP / SMS provider configured → the backend writes codes to its log (`docker logs thecommerce-backend`).
 
 ---
 
@@ -599,12 +633,11 @@ api.put<StoreSettings>("/settings", { currency: "BDT" }); // ADMIN only; case-in
 
 ## 9. Known limitations (design around them)
 
-- **No phone verification (OTP).** Whoever registers a number first sees that number's guest/in-store orders. Don't
-  promise more than that in the UI; an OTP step may come later.
+- Phone/email ownership is proven by OTP (§6.8); there is no SMS gateway yet, so SMS codes only reach the backend log.
 - Guest orders can't be looked up or cancelled without creating an account with that phone.
 - In-store sales can't be refunded/voided via the API yet.
 - `GET /products` is not paginated (fine for now; may change if the catalogue grows).
-- The public guest checkout has no captcha/rate limit yet.
+- The public guest checkout has no captcha; OTP sending is rate-limited per destination only (not per IP).
 
 ---
 

@@ -26,7 +26,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
-      <body className="flex min-h-full flex-col bg-muted/30">
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) inject attributes into <body> before hydration. */}
+      <body className="flex min-h-full flex-col bg-muted/30" suppressHydrationWarning>
         <Providers>
           <Header />
           <Main>{children}</Main>
